@@ -1,0 +1,46 @@
+run:
+  skip-dirs-use-default: false
+
+linters:
+  enable-all: true
+  disable:
+    - gochecknoinits
+    - paralleltest
+    - wrapcheck
+    - gosec
+    - gochecknoglobals
+    - musttag
+    - revive
+    - gomnd
+    - wsl
+    - exhaustruct
+    - ireturn
+    - nonamedreturns
+    - varnamelen
+    - stylecheck
+    - nlreturn
+    - forcetypeassert
+    - gci
+
+    # Deprecated ones:
+    - structcheck
+    - interfacer
+    - deadcode
+    - varcheck
+    - ifshort
+    - exhaustivestruct
+    - golint
+    - maligned
+    - nosnakecase
+    - scopelint
+
+gocyclo:
+  min-complexity: 15
+
+issues:
+  exclude-use-default: false
+
+  exclude-rules:
+    - path: main.go
+      linters:
+        - forbidigo
