@@ -3,26 +3,41 @@ package whisper
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"io"
 
+	"github.com/ysmood/whisper/lib/piper"
 	"github.com/ysmood/whisper/lib/secure"
 )
 
-func GenKeysBase64(passphrase string) (private string, public string, err error) {
-	privateBin, publicBin, err := secure.GenKeys(passphrase)
+func New(publicKey, privateKey, privateKeyPassphrase string, gzipLevel int, base64 bool) (piper.EncodeDecoder, error) {
+	list := []piper.EncodeDecoder{}
+
+	publicBin, err := Base64Encoding.DecodeString(publicKey)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	private = Base64Encoding.EncodeToString(privateBin)
-	public = Base64Encoding.EncodeToString(publicBin)
+	privateBin, err := Base64Encoding.DecodeString(privateKey)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	ecc, err := secure.NewECC(publicBin, privateBin, privateKeyPassphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	list = append(list, ecc, &piper.Gzip{Level: gzipLevel})
+
+	if base64 {
+		list = append(list, &piper.Base64{Encoding: Base64Encoding})
+	}
+
+	return piper.Join(list...), nil
 }
 
-func EncryptString(publicKey string, data string, gzipLevel int) (string, error) {
-	bin, err := EncryptBytes(publicKey, []byte(data), gzipLevel)
+func EncryptString(publicKey string, data string) (string, error) {
+	bin, err := EncryptBytes(publicKey, []byte(data))
 	return string(bin), err
 }
 
@@ -31,91 +46,58 @@ func DecryptString(privateKey, privateKeyPassphrase string, data string) (string
 	return string(bin), err
 }
 
-func EncryptBytes(publicKey string, data []byte, gzipLevel int) ([]byte, error) {
+func EncryptBytes(publicKey string, data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	enc, err := Encrypt(publicKey, buf, gzipLevel)
+	wp, err := New(publicKey, "", "", gzip.DefaultCompression, true)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = enc.Write(data)
+	w, err := wp.Encoder(buf)
 	if err != nil {
 		return nil, err
 	}
 
-	err = enc.Close()
+	_, err = w.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = w.Close()
 
 	return buf.Bytes(), err
 }
 
 func DecryptBytes(privateKey, privateKeyPassphrase string, data []byte) ([]byte, error) {
-	dec, err := Decrypt(privateKey, privateKeyPassphrase, bytes.NewReader(data))
+	wp, err := New("", privateKey, privateKeyPassphrase, gzip.DefaultCompression, true)
 	if err != nil {
 		return nil, err
 	}
 
-	bin, err := io.ReadAll(dec)
+	r, err := wp.Decoder(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 
-	err = dec.Close()
+	bin, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.Close()
 
 	return bin, err
 }
 
-// Encrypt data with public key. The data flow is:
-//
-//	data -> gip -> encrypt -> base64
-func Encrypt(publicKey string, data io.Writer, gzipLevel int) (io.WriteCloser, error) {
-	encBase64 := base64.NewEncoder(Base64Encoding, data)
-
-	keyBin, err := Base64Encoding.DecodeString(publicKey)
+func GenKeysBase64(passphrase string) (public string, private string, err error) {
+	publicBin, privateBin, err := secure.GenKeys(passphrase)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	key, err := secure.LoadPublicKey(keyBin)
-	if err != nil {
-		return nil, err
-	}
+	public = Base64Encoding.EncodeToString(publicBin)
+	private = Base64Encoding.EncodeToString(privateBin)
 
-	encrypted, err := secure.Encrypt(key, encBase64)
-	if err != nil {
-		return nil, err
-	}
-
-	encGzip, err := gzip.NewWriterLevel(encrypted, gzipLevel)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCloseWriters(encGzip, encGzip, encBase64), nil
-}
-
-func Decrypt(privateKey, privateKeyPassphrase string, data io.Reader) (io.ReadCloser, error) {
-	decBase64 := base64.NewDecoder(Base64Encoding, data)
-
-	keyBin, err := Base64Encoding.DecodeString(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := secure.LoadPrivateKey(privateKeyPassphrase, keyBin)
-	if err != nil {
-		return nil, err
-	}
-
-	decrypted, err := secure.Decrypt(key, decBase64)
-	if err != nil {
-		return nil, err
-	}
-
-	decGzip, err := gzip.NewReader(decrypted)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCloseReaders(decGzip, decGzip), nil
+	return
 }

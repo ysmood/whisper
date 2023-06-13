@@ -11,47 +11,20 @@ import (
 func TestECDH(t *testing.T) {
 	g := got.T(t)
 
-	private, public, err := secure.GenKeys("test")
+	public, private, err := secure.GenKeys("test")
 	g.E(err)
 
-	publicKey, err := secure.LoadPublicKey(public)
+	ecc, err := secure.NewECC(public, private, "test")
 	g.E(err)
 
-	encrypted := bytes.NewBuffer(nil)
-	enc, err := secure.Encrypt(publicKey, encrypted)
+	buf := bytes.NewBuffer(nil)
+	enc, err := ecc.Encoder(buf)
 	g.E(err)
 	g.E(enc.Write([]byte("ok")))
+	g.E(enc.Close())
 
-	privateKey, err := secure.LoadPrivateKey("test", private)
+	dec, err := ecc.Decoder(buf)
 	g.E(err)
 
-	decrypted, err := secure.Decrypt(privateKey, encrypted)
-	g.E(err)
-
-	g.Eq(g.Read(decrypted).String(), "ok")
-}
-
-func TestKey(t *testing.T) {
-	g := got.T(t)
-
-	private, public, err := secure.GenKeys("test")
-	g.E(err)
-
-	publicKey, err := secure.LoadPublicKey(public)
-	g.E(err)
-
-	aesKey, encryptedKey, err := publicKey.Generate()
-	g.E(err)
-
-	privateKey, err := secure.LoadPrivateKey("test", private)
-	g.E(err)
-
-	out, err := privateKey.Decrypt(encryptedKey)
-	g.E(err)
-	g.Eq(aesKey, out)
-
-	outAgain, err := privateKey.Decrypt(encryptedKey)
-	g.E(err)
-
-	g.Eq(aesKey, outAgain)
+	g.Eq(g.Read(dec).String(), "ok")
 }

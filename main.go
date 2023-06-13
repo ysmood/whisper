@@ -8,6 +8,7 @@ import (
 	"os"
 
 	whisper "github.com/ysmood/whisper/lib"
+	"github.com/ysmood/whisper/lib/piper"
 	"github.com/ysmood/whisper/lib/secure"
 	"golang.org/x/term"
 )
@@ -17,6 +18,7 @@ func main() {
 
 	decryptMode := flags.Bool("d", false, "decrypt mode")
 	privateKeyPath := flags.String("k", "ecdh", "private key path")
+	bin := flags.Bool("b", false, "encoding data as binary instead of base64")
 
 	compressLevel := flags.Int("c", gzip.DefaultCompression, "gzip compression level")
 
@@ -45,24 +47,36 @@ func main() {
 		return
 	}
 
-	var src io.Reader
-	var dst io.WriteCloser
-	if *decryptMode {
-		src, err = whisper.Decrypt(getKey(false, *privateKeyPath), pass, getInput(flags.Arg(0)))
-		dst = output(*outputFile)
+	wp, err := whisper.New(
+		getKey(true, *privateKeyPath),
+		getKey(false, *privateKeyPath),
+		pass,
+		*compressLevel,
+		!*bin,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	process(*decryptMode, wp, getInput(flags.Arg(0)), getOutput(*outputFile))
+}
+
+func process(decrypt bool, wp piper.EncodeDecoder, in io.ReadCloser, out io.WriteCloser) {
+	var err error
+	if decrypt {
+		in, err = wp.Decoder(in)
 	} else {
-		src = getInput(flags.Arg(0))
-		dst, err = whisper.Encrypt(getKey(true, *privateKeyPath), output(*outputFile), *compressLevel)
+		out, err = wp.Encoder(out)
 	}
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = io.Copy(dst, src)
+	_, err = io.Copy(out, in)
 	if err != nil {
 		panic(err)
 	}
-	err = dst.Close()
+	err = out.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +104,7 @@ func readPassphrase() string {
 	return string(passphrase)
 }
 
-func getInput(input string) io.Reader {
+func getInput(input string) io.ReadCloser {
 	if input == "" {
 		return os.Stdin
 	}
@@ -102,7 +116,7 @@ func getInput(input string) io.Reader {
 	return f
 }
 
-func output(file string) io.WriteCloser {
+func getOutput(file string) io.WriteCloser {
 	if file == "" {
 		return os.Stdout
 	}
@@ -115,17 +129,17 @@ func output(file string) io.WriteCloser {
 }
 
 func genKeys(passphrase, out string) {
-	private, public, err := secure.GenKeys(passphrase)
+	public, private, err := secure.GenKeys(passphrase)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(out, []byte(whisper.Base64Encoding.EncodeToString(private)), 0o600)
+	err = os.WriteFile(out, []byte(whisper.Base64Encoding.EncodeToString(private)), 0o400)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.WriteFile(out+".pub", []byte(whisper.Base64Encoding.EncodeToString(public)), 0o600)
+	err = os.WriteFile(out+".pub", []byte(whisper.Base64Encoding.EncodeToString(public)), 0o400)
 	if err != nil {
 		panic(err)
 	}

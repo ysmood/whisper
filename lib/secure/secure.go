@@ -2,72 +2,98 @@ package secure
 
 import (
 	"crypto/ecdh"
+	"crypto/rand"
 	"crypto/x509"
 	"io"
+
+	"github.com/ysmood/whisper/lib/piper"
 )
 
-type Key interface {
-	Generate() (aesKey []byte, encryptedKey []byte, err error)
-	Decrypt(encryptedKey []byte) (aesKey []byte, err error)
+type ECC struct {
+	pub *ecdh.PublicKey
+	key *ecdh.PrivateKey
 }
 
-// Encrypt a data stream with a private key and AES.
-func Encrypt(key Key, encrypted io.Writer) (io.WriteCloser, error) {
-	aesKey, encryptedKey, err := key.Generate()
+func NewECC(publicKey, privateKey []byte, passphrase string) (piper.EncodeDecoder, error) {
+	var err error
+	var pub interface{}
+
+	if len(publicKey) > 0 {
+		pub, err = x509.ParsePKIXPublicKey(publicKey)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		pub = (*ecdh.PublicKey)(nil)
+	}
+
+	var key interface{}
+	if len(privateKey) > 0 {
+		keyData, err := DecryptAES(passphrase, privateKey)
+		if err != nil {
+			return nil, err
+		}
+
+		key, err = x509.ParsePKCS8PrivateKey(keyData)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		key = (*ecdh.PrivateKey)(nil)
+	}
+
+	return &ECC{
+		pub: pub.(*ecdh.PublicKey),
+		key: key.(*ecdh.PrivateKey),
+	}, nil
+}
+
+func (e *ECC) Generate() (aesKey []byte, encryptedKey []byte, err error) {
+	remoteKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	aesKey, err = remoteKey.ECDH(e.pub)
+
+	return aesKey, remoteKey.PublicKey().Bytes(), err
+}
+
+func (e *ECC) Decrypt(encryptedKey []byte) (aesKey []byte, err error) {
+	remoteKey, err := ecdh.X25519().NewPublicKey(encryptedKey)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = encrypted.Write(encryptedKey)
+	return e.key.ECDH(remoteKey)
+}
+
+func (e *ECC) Encoder(w io.Writer) (io.WriteCloser, error) {
+	aesKey, encryptedKey, err := e.Generate()
 	if err != nil {
 		return nil, err
 	}
 
-	return NewAESEncrypter(aesKey, encrypted)
+	_, err = w.Write(encryptedKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return piper.NewAES(aesKey).Encoder(w)
 }
 
-// Decrypt a data stream with a private key and AES.
-func Decrypt(key Key, encrypted io.Reader) (io.Reader, error) {
+func (e *ECC) Decoder(r io.Reader) (io.ReadCloser, error) {
 	encryptedKey := make([]byte, 32)
 
-	_, err := io.ReadFull(encrypted, encryptedKey)
+	_, err := io.ReadFull(r, encryptedKey)
 	if err != nil {
 		return nil, err
 	}
 
-	aesKey, err := key.Decrypt(encryptedKey)
+	aesKey, err := e.Decrypt(encryptedKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewAESDecrypter(aesKey, encrypted)
-}
-
-// LoadPublicKey from binary.
-func LoadPublicKey(keyData []byte) (Key, error) {
-	data, err := x509.ParsePKIXPublicKey(keyData)
-	if err != nil {
-		return nil, err
-	}
-
-	return &KeyECDH{
-		pub: data.(*ecdh.PublicKey),
-	}, nil
-}
-
-// LoadPrivateKey from binary.
-func LoadPrivateKey(passphrase string, keyData []byte) (Key, error) {
-	keyData, err := DecryptAES(passphrase, keyData)
-	if err != nil {
-		return nil, err
-	}
-
-	k, err := x509.ParsePKCS8PrivateKey(keyData)
-	if err != nil {
-		return nil, err
-	}
-
-	return &KeyECDH{
-		key: k.(*ecdh.PrivateKey),
-	}, nil
+	return piper.NewAES(aesKey).Decoder(r)
 }

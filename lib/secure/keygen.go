@@ -7,7 +7,7 @@ import (
 )
 
 // GenKeys generate a pair of keys in base64 format.
-func GenKeys(passphrase string) (private []byte, public []byte, err error) {
+func GenKeys(passphrase string) (public []byte, private []byte, err error) {
 	key, err := ecdh.X25519().GenerateKey(rand.Reader)
 	if err != nil {
 		return
