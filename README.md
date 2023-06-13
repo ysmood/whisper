@@ -4,6 +4,16 @@
 
 A simple tool to encrypt data with a ECDH public key and decrypt it with the private key.
 
+## Download
+
+Go to the [release page](https://github.com/ysmood/whisper/releases).
+
+If you have golang installed:
+
+```bash
+go install github.com/ysmood/whisper@latest
+```
+
 ## Usage
 
 ```bash
