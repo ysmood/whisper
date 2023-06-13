@@ -4,7 +4,7 @@
 
 A simple tool to encrypt data with a ECDH public key and decrypt it with the private key.
 
-## Download
+## Installation
 
 Go to the [release page](https://github.com/ysmood/whisper/releases).
 
