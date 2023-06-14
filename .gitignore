@@ -1,4 +1,3 @@
 *.json
 tmp/
-ecdh
-ecdh.pub
+/ecc_key*

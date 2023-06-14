@@ -2,7 +2,7 @@
 
 # Overview
 
-A simple tool to encrypt data with a ECDH public key and decrypt it with the private key.
+A simple tool to encrypt, decrypt, sign, and verify data with [ECC](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography).
 
 ## Installation
 
@@ -18,7 +18,7 @@ go install github.com/ysmood/whisper@latest
 
 ```bash
 whisper -g
-# Keys generated successfully: ecdh
+# Keys generated successfully: ecc_key
 
 echo 'hello world!' | whisper
 # FVPmYc4x1JilPtF8rMs0n2OlX2
@@ -27,4 +27,4 @@ echo 'FVPmYc4x1JilPtF8rMs0n2OlX2' | whisper -d
 # hello world!
 ```
 
-Use it as lib: [example](lib/examples/basic/main.go)
+Use it as lib: [link](https://pkg.go.dev/github.com/ysmood/whisper)

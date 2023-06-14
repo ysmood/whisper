@@ -21,6 +21,7 @@ linters:
     - nlreturn
     - forcetypeassert
     - gci
+    - depguard
 
     # Deprecated ones:
     - structcheck

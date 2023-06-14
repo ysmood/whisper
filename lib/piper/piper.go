@@ -12,11 +12,11 @@ type EncodeDecoderFn struct {
 	D func(io.Reader) (io.ReadCloser, error)
 }
 
-func (ed EncodeDecoderFn) Encoder(w io.Writer) (io.WriteCloser, error) {
+func (ed *EncodeDecoderFn) Encoder(w io.Writer) (io.WriteCloser, error) {
 	return ed.E(w)
 }
 
-func (ed EncodeDecoderFn) Decoder(r io.Reader) (io.ReadCloser, error) {
+func (ed *EncodeDecoderFn) Decoder(r io.Reader) (io.ReadCloser, error) {
 	return ed.D(r)
 }
 
@@ -25,7 +25,7 @@ func Join(list ...EncodeDecoder) EncodeDecoder {
 		list[i], list[j] = list[j], list[i]
 	}
 
-	return EncodeDecoderFn{
+	return &EncodeDecoderFn{
 		E: func(w io.Writer) (io.WriteCloser, error) {
 			ws := closeWriters{w}
 			for _, e := range list {
@@ -61,11 +61,9 @@ func (cw closeWriters) Write(p []byte) (n int, err error) {
 
 func (cw closeWriters) Close() error {
 	for _, w := range cw {
-		if c, ok := w.(io.Closer); ok {
-			err := c.Close()
-			if err != nil {
-				return err
-			}
+		err := Close(w)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -79,24 +77,56 @@ func (cr closeReaders) Read(p []byte) (n int, err error) {
 
 func (cr closeReaders) Close() error {
 	for _, r := range cr {
-		if c, ok := r.(io.Closer); ok {
-			err := c.Close()
-			if err != nil {
-				return err
-			}
+		err := Close(r)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-type WriteFn func(p []byte) (n int, err error)
-
-func (w WriteFn) Write(p []byte) (n int, err error) {
-	return w(p)
+func Close(stream interface{}) error {
+	if c, ok := stream.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }
 
-type ReadFn func(p []byte) (n int, err error)
+type WriteClose struct {
+	W func(p []byte) (n int, err error)
+	C func() error
+}
 
-func (r ReadFn) Read(p []byte) (n int, err error) {
-	return r(p)
+var _ io.WriteCloser = WriteClose{}
+
+func (wc WriteClose) Write(p []byte) (n int, err error) {
+	return wc.W(p)
+}
+
+func (wc WriteClose) Close() error {
+	return wc.C()
+}
+
+type ReadClose struct {
+	R func(p []byte) (n int, err error)
+	C func() error
+}
+
+var _ io.ReadCloser = ReadClose{}
+
+func (rc ReadClose) Read(p []byte) (n int, err error) {
+	return rc.R(p)
+}
+
+func (rc ReadClose) Close() error {
+	return rc.C()
+}
+
+type Buffer []byte
+
+// Consume consumes the buffer to dst and returns the number of bytes consumed.
+func (b *Buffer) Consume(dst []byte) int {
+	n := copy(dst, *b)
+	*b = (*b)[n:]
+	return n
 }

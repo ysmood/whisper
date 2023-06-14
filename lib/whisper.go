@@ -9,25 +9,18 @@ import (
 	"github.com/ysmood/whisper/lib/secure"
 )
 
-func New(publicKey, privateKey, privateKeyPassphrase string, gzipLevel int, base64 bool) (piper.EncodeDecoder, error) {
-	list := []piper.EncodeDecoder{}
-
-	publicBin, err := Base64Encoding.DecodeString(publicKey)
+// New data encoding flow:
+//
+//	data -> gzip -> encrypt -> sign -> base64
+//
+// Only gzip is required, others are optional.
+func New(pub PublicKey, prv PrivateKey, gzipLevel int, base64 bool) (piper.EncodeDecoder, error) {
+	key, err := ParseKeysInBase64(pub, prv)
 	if err != nil {
 		return nil, err
 	}
 
-	privateBin, err := Base64Encoding.DecodeString(privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	ecc, err := secure.NewECC(publicBin, privateBin, privateKeyPassphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	list = append(list, ecc, &piper.Gzip{Level: gzipLevel})
+	list := []piper.EncodeDecoder{&piper.Gzip{Level: gzipLevel}, key.Cipher(), key.Signer()}
 
 	if base64 {
 		list = append(list, &piper.Base64{Encoding: Base64Encoding})
@@ -36,20 +29,43 @@ func New(publicKey, privateKey, privateKeyPassphrase string, gzipLevel int, base
 	return piper.Join(list...), nil
 }
 
-func EncryptString(publicKey string, data string) (string, error) {
-	bin, err := EncryptBytes(publicKey, []byte(data))
+type PrivateKey struct {
+	Data string
+
+	// Passphrase is used to decrypt the [PrivateKey.Data]
+	Passphrase string
+}
+
+type PublicKey string
+
+func ParseKeysInBase64(pub PublicKey, prv PrivateKey) (*secure.Key, error) {
+	publicBin, err := Base64Encoding.DecodeString(string(pub))
+	if err != nil {
+		return nil, err
+	}
+
+	privateBin, err := Base64Encoding.DecodeString(prv.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return secure.New(publicBin, privateBin, prv.Passphrase)
+}
+
+func EncodeString(sender PrivateKey, receiver PublicKey, data string) (string, error) {
+	bin, err := Encode(sender, receiver, []byte(data))
 	return string(bin), err
 }
 
-func DecryptString(privateKey, privateKeyPassphrase string, data string) (string, error) {
-	bin, err := DecryptBytes(privateKey, privateKeyPassphrase, []byte(data))
+func DecodeString(receiver PrivateKey, sender PublicKey, data string) (string, error) {
+	bin, err := Decode(receiver, sender, []byte(data))
 	return string(bin), err
 }
 
-func EncryptBytes(publicKey string, data []byte) ([]byte, error) {
+func Encode(sender PrivateKey, receiver PublicKey, data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	wp, err := New(publicKey, "", "", gzip.DefaultCompression, true)
+	wp, err := New(receiver, sender, gzip.DefaultCompression, true)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +85,8 @@ func EncryptBytes(publicKey string, data []byte) ([]byte, error) {
 	return buf.Bytes(), err
 }
 
-func DecryptBytes(privateKey, privateKeyPassphrase string, data []byte) ([]byte, error) {
-	wp, err := New("", privateKey, privateKeyPassphrase, gzip.DefaultCompression, true)
+func Decode(receiver PrivateKey, sender PublicKey, data []byte) ([]byte, error) {
+	wp, err := New(sender, receiver, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +98,7 @@ func DecryptBytes(privateKey, privateKeyPassphrase string, data []byte) ([]byte,
 
 	bin, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
+		return bin, err
 	}
 
 	err = r.Close()
@@ -90,14 +106,15 @@ func DecryptBytes(privateKey, privateKeyPassphrase string, data []byte) ([]byte,
 	return bin, err
 }
 
-func GenKeysBase64(passphrase string) (public string, private string, err error) {
+func GenKeysInBase64(passphrase string) (PublicKey, PrivateKey, error) {
 	publicBin, privateBin, err := secure.GenKeys(passphrase)
 	if err != nil {
-		return
+		return "", PrivateKey{}, err
 	}
 
-	public = Base64Encoding.EncodeToString(publicBin)
-	private = Base64Encoding.EncodeToString(privateBin)
-
-	return
+	return PublicKey(Base64Encoding.EncodeToString(publicBin)),
+		PrivateKey{
+			Data:       Base64Encoding.EncodeToString(privateBin),
+			Passphrase: passphrase,
+		}, nil
 }
