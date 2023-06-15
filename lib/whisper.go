@@ -11,7 +11,7 @@ import (
 
 // New data encoding flow:
 //
-//	data -> gzip -> encrypt -> sign -> base64
+//	data -> gzip -> encrypt -> base64
 //
 // Only gzip is required, others are optional.
 func New(pub PublicKey, prv PrivateKey, gzipLevel int, base64 bool) (piper.EncodeDecoder, error) {
@@ -20,7 +20,7 @@ func New(pub PublicKey, prv PrivateKey, gzipLevel int, base64 bool) (piper.Encod
 		return nil, err
 	}
 
-	list := []piper.EncodeDecoder{&piper.Gzip{Level: gzipLevel}, key.Cipher(), key.Signer()}
+	list := []piper.EncodeDecoder{&piper.Gzip{Level: gzipLevel}, key.Cipher()}
 
 	if base64 {
 		list = append(list, &piper.Base64{Encoding: Base64Encoding})

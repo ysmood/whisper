@@ -2,7 +2,6 @@ package main
 
 import (
 	"compress/gzip"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -22,16 +21,14 @@ func main() {
 	flags := flag.NewFlagSet("whisper", flag.ExitOnError)
 
 	decryptMode := flags.Bool("d", false, "decrypt mode")
-	publicKey := flags.String("p", "",
-		"the public key for encryption or signature checking, it can be a local file path or https url")
-	ignoreSignErr := flags.Bool("i", false, "ignore signature error")
-	privateKeyPath := flags.String("k", defaultKeyName, "private key path")
+	privateKey := flags.String("k", defaultKeyName, "private key path")
+	publicKey := flags.String("p", "", "the public key, it can be a local file path or https url")
 	bin := flags.Bool("b", false, "encoding data as binary instead of base64")
 
 	compressLevel := flags.Int("c", gzip.DefaultCompression, "gzip compression level")
 
 	keyGen := flags.Bool("g", false, "generate a pair of ecc private and public keys")
-	passphrase := flags.Bool("s", false, "prompt secret passphrase input for private key")
+	passphrase := flags.Bool("s", false, "prompt secret passphrase input to encrypt/decrypt private key")
 
 	outputFile := flags.String("o", "", "output encryption/decryption to the specified file")
 
@@ -51,14 +48,14 @@ func main() {
 	}
 
 	if *keyGen {
-		genKeys(pass, *privateKeyPath)
+		genKeys(pass, *privateKey)
 		return
 	}
 
 	wp, err := whisper.New(
-		whisper.PublicKey(getPublicKey(*publicKey, pubKeyName(*privateKeyPath))),
+		whisper.PublicKey(getPublicKey(*publicKey, pubKeyName(*privateKey))),
 		whisper.PrivateKey{
-			Data:       getKey(*privateKeyPath),
+			Data:       getKey(*privateKey),
 			Passphrase: pass,
 		},
 		*compressLevel,
@@ -68,10 +65,10 @@ func main() {
 		panic(err)
 	}
 
-	process(*decryptMode, *ignoreSignErr, wp, getInput(flags.Arg(0)), getOutput(*outputFile))
+	process(*decryptMode, wp, getInput(flags.Arg(0)), getOutput(*outputFile))
 }
 
-func process(decrypt, ignoreSignErr bool, wp piper.EncodeDecoder, in io.ReadCloser, out io.WriteCloser) {
+func process(decrypt bool, wp piper.EncodeDecoder, in io.ReadCloser, out io.WriteCloser) {
 	var err error
 	if decrypt {
 		in, err = wp.Decoder(in)
@@ -83,7 +80,7 @@ func process(decrypt, ignoreSignErr bool, wp piper.EncodeDecoder, in io.ReadClos
 	}
 
 	_, err = io.Copy(out, in)
-	if err != nil && !(ignoreSignErr && errors.Is(err, secure.ErrSignNotMatch)) {
+	if err != nil {
 		panic(err)
 	}
 	err = out.Close()

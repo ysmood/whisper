@@ -11,10 +11,13 @@ import (
 func TestBasic(t *testing.T) {
 	g := got.T(t)
 
-	public, private, err := secure.GenKeys("test")
+	public1, private1, err := secure.GenKeys("test")
 	g.E(err)
 
-	key, err := secure.New(public, nil, "test")
+	public2, private2, err := secure.GenKeys("test")
+	g.E(err)
+
+	key, err := secure.New(public1, private2, "test")
 	g.E(err)
 
 	buf := bytes.NewBuffer(nil)
@@ -23,7 +26,7 @@ func TestBasic(t *testing.T) {
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	key, err = secure.New(nil, private, "test")
+	key, err = secure.New(public2, private1, "test")
 	g.E(err)
 
 	dec, err := key.Cipher().Decoder(buf)
@@ -74,4 +77,28 @@ func TestSigner(t *testing.T) {
 	g.E(err)
 
 	g.Eq(g.Read(dec).Bytes(), data)
+}
+
+func TestAESKey(t *testing.T) {
+	g := got.T(t)
+
+	public1, private1, err := secure.GenKeys("1")
+	g.E(err)
+
+	public2, private2, err := secure.GenKeys("2")
+	g.E(err)
+
+	key1, err := secure.New(public2, private1, "1")
+	g.E(err)
+
+	key2, err := secure.New(public1, private2, "2")
+	g.E(err)
+
+	aes1, err := key1.AESKey()
+	g.E(err)
+
+	aes2, err := key2.AESKey()
+	g.E(err)
+
+	g.Eq(aes1, aes2)
 }

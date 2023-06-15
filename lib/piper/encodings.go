@@ -1,12 +1,14 @@
 package piper
 
 import (
+	"bytes"
 	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"io"
 )
 
@@ -68,11 +70,21 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 		return nil, err
 	}
 
-	return &cipher.StreamWriter{
+	s := &cipher.StreamWriter{
 		S: cipher.NewOFB(block, iv),
 		W: w,
-	}, nil
+	}
+
+	// https://www.rfc-editor.org/rfc/rfc4880#section-5.13
+	_, err = s.Write(iv[:2])
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
+
+var ErrAESDecode = errors.New("wrong secret or corrupted data")
 
 func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 	hashedKey := md5.Sum(a.Key)
@@ -87,8 +99,21 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return io.NopCloser(&cipher.StreamReader{
+	rc := io.NopCloser(&cipher.StreamReader{
 		S: cipher.NewOFB(block, iv),
 		R: r,
-	}), nil
+	})
+
+	guard := make([]byte, 2)
+
+	_, err = io.ReadFull(rc, guard)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bytes.Equal(guard, iv[:2]) {
+		return nil, ErrAESDecode
+	}
+
+	return rc, nil
 }

@@ -2,7 +2,7 @@
 
 # Overview
 
-A simple tool to encrypt, decrypt, sign, and verify data with [ECC](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography).
+A simple lib to encrypt, decrypt data with [ECC](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography).
 
 ## Installation
 

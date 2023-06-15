@@ -1,7 +1,6 @@
 package secure
 
 import (
-	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -53,46 +52,18 @@ func New(publicKey, privateKey []byte, passphrase string) (*Key, error) {
 	}, nil
 }
 
-func (k *Key) AESKeyGenerate() (aesKey []byte, publicKey []byte, err error) {
-	prv := k.prv
-	if prv == nil {
-		prv, err = GenKey()
-		if err != nil {
-			return
-		}
-	}
-
-	private, err := prv.ECDH()
+func (k *Key) AESKey() ([]byte, error) {
+	private, err := k.prv.ECDH()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	public, err := k.pub.ECDH()
 	if err != nil {
-		return nil, nil, err
-	}
-
-	aesKey, err = private.ECDH(public)
-
-	bin := private.PublicKey().Bytes()
-	header := make([]byte, 1)
-	header[0] = byte(len(bin))
-
-	return aesKey, append(header, bin...), err // nozero
-}
-
-func (k *Key) AESKeyDecrypt(publicKey []byte) (aesKey []byte, err error) {
-	pub, err := ecdh.P256().NewPublicKey(publicKey)
-	if err != nil {
 		return nil, err
 	}
 
-	prv, err := k.prv.ECDH()
-	if err != nil {
-		return nil, err
-	}
-
-	return prv.ECDH(pub)
+	return private.ECDH(public)
 }
 
 func (k *Key) Sign(digest []byte) ([]byte, error) {
@@ -112,12 +83,7 @@ func (k *Key) Cipher() *Cipher {
 }
 
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
-	aesKey, publicKey, err := c.Key.AESKeyGenerate()
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = w.Write(publicKey)
+	aesKey, err := c.Key.AESKey()
 	if err != nil {
 		return nil, err
 	}
@@ -126,19 +92,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
-	header := make([]byte, 1)
-	_, err := io.ReadFull(r, header)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKey := make([]byte, header[0])
-	_, err = io.ReadFull(r, publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	aesKey, err := c.Key.AESKeyDecrypt(publicKey)
+	aesKey, err := c.Key.AESKey()
 	if err != nil {
 		return nil, err
 	}
