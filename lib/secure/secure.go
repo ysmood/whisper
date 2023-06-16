@@ -1,6 +1,7 @@
 package secure
 
 import (
+	"crypto/aes"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -8,62 +9,73 @@ import (
 	"errors"
 	"io"
 
-	"github.com/ysmood/byframe/v3"
+	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
 )
 
 type Key struct {
-	pub *ecdsa.PublicKey
+	pub []*ecdsa.PublicKey
 	prv *ecdsa.PrivateKey
 }
 
-// New key. Either or both of publicKey or privateKey must be provided.
-func New(publicKey, privateKey []byte, passphrase string) (*Key, error) {
-	var err error
-	var pub interface{}
-
-	if len(publicKey) > 0 {
-		pub, err = x509.ParsePKIXPublicKey(publicKey)
+// New Key.
+func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Key, error) {
+	pub := []*ecdsa.PublicKey{}
+	for _, publicKey := range publicKeys {
+		key, err := x509.ParsePKIXPublicKey(publicKey)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		pub = (*ecdsa.PublicKey)(nil)
+		pub = append(pub, key.(*ecdsa.PublicKey))
 	}
 
-	var prv interface{}
-	if len(privateKey) > 0 {
-		keyData, err := DecryptAES(passphrase, privateKey)
-		if err != nil {
-			return nil, err
-		}
+	keyData, err := DecryptAES([]byte(passphrase), privateKey)
+	if err != nil {
+		return nil, err
+	}
 
-		prv, err = x509.ParsePKCS8PrivateKey(keyData)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		prv = (*ecdsa.PrivateKey)(nil)
+	prv, err := x509.ParsePKCS8PrivateKey(keyData)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Key{
-		pub: pub.(*ecdsa.PublicKey),
+		pub: pub,
 		prv: prv.(*ecdsa.PrivateKey),
 	}, nil
 }
 
-func (k *Key) AESKey() ([]byte, error) {
-	private, err := k.prv.ECDH()
-	if err != nil {
-		return nil, err
+func (k *Key) AESKeys() ([]byte, [][]byte, error) {
+	if len(k.pub) == 1 {
+		key, err := ECDH(k.prv, k.pub[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		return key, nil, nil
 	}
 
-	public, err := k.pub.ECDH()
+	aesKey := make([]byte, aes.BlockSize)
+	_, err := rand.Read(aesKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return private.ECDH(public)
+	encryptedKeys := [][]byte{}
+	for _, pub := range k.pub {
+		key, err := ECDH(k.prv, pub)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		encryptedKey, err := EncryptAES(key, aesKey)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		encryptedKeys = append(encryptedKeys, encryptedKey)
+	}
+
+	return aesKey, encryptedKeys, nil
 }
 
 func (k *Key) Sign(digest []byte) ([]byte, error) {
@@ -71,7 +83,7 @@ func (k *Key) Sign(digest []byte) ([]byte, error) {
 }
 
 func (k *Key) Verify(digest, sign []byte) bool {
-	return ecdsa.VerifyASN1(k.pub, digest, sign)
+	return ecdsa.VerifyASN1(k.pub[0], digest, sign)
 }
 
 type Cipher struct {
@@ -82,19 +94,66 @@ func (k *Key) Cipher() *Cipher {
 	return &Cipher{Key: k}
 }
 
+// Encoder format is:
+// [encrypted key count][encrypted key 1][encrypted key 2]...[encrypted data].
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
-	aesKey, err := c.Key.AESKey()
+	aesKey, encryptedKeys, err := c.Key.AESKeys()
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = w.Write(byframe.Encode(byframe.EncodeHeader(len(encryptedKeys))))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, encryptedKey := range encryptedKeys {
+		_, err = w.Write(byframe.Encode(encryptedKey))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return piper.NewAES(aesKey).Encoder(w)
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
-	aesKey, err := c.Key.AESKey()
+	s := byframe.NewScanner(r)
+
+	header, err := s.Next()
 	if err != nil {
 		return nil, err
+	}
+
+	_, count := byframe.DecodeHeader(header)
+
+	encryptedKeys := [][]byte{}
+	for i := 0; i < count; i++ {
+		encryptedKey, err := s.Next()
+		if err != nil {
+			return nil, err
+		}
+		encryptedKeys = append(encryptedKeys, encryptedKey)
+	}
+
+	key, err := ECDH(c.Key.prv, c.Key.pub[0])
+	if err != nil {
+		return nil, err
+	}
+
+	var aesKey []byte
+
+	if count == 0 {
+		aesKey = key
+	} else {
+		for _, encryptedKey := range encryptedKeys {
+			aesKey, err = DecryptAES(key, encryptedKey)
+			if err == nil {
+				break
+			} else if !errors.Is(err, piper.ErrAESDecode) {
+				return nil, err
+			}
+		}
 	}
 
 	return piper.NewAES(aesKey).Decoder(r)
@@ -189,4 +248,18 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			return piper.Close(r)
 		},
 	}, nil
+}
+
+func ECDH(prv *ecdsa.PrivateKey, pub *ecdsa.PublicKey) ([]byte, error) {
+	private, err := prv.ECDH()
+	if err != nil {
+		return nil, err
+	}
+
+	public, err := pub.ECDH()
+	if err != nil {
+		return nil, err
+	}
+
+	return private.ECDH(public)
 }

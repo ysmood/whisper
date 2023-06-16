@@ -1,5 +1,7 @@
 github.com/ysmood/byframe/v3 v3.1.1 h1:LuVNaV9D6a5bDg2PRp+F5Ij3XnG4aMw655D0x7z0irY=
 github.com/ysmood/byframe/v3 v3.1.1/go.mod h1:3RBTZlY0qE0gD/qNm3Wu7z/wK4ukJpkXXNdBonL9LJU=
+github.com/ysmood/byframe/v4 v4.0.0 h1:ts3fNYjGSo83GRwb9M+z/YbzUYQSBruHPaE73962Lj0=
+github.com/ysmood/byframe/v4 v4.0.0/go.mod h1:hwg4L+koyIO2N72pWBjGaX3TkyDMokjiN18AC5RAviQ=
 github.com/ysmood/gop v0.0.2 h1:VuWweTmXK+zedLqYufJdh3PlxDNBOfFHjIZlPT2T5nw=
 github.com/ysmood/gop v0.0.2/go.mod h1:rr5z2z27oGEbyB787hpEcx4ab8cCiPnKxn0SUHt6xzk=
 github.com/ysmood/got v0.34.1 h1:IrV2uWLs45VXNvZqhJ6g2nIhY+pgIG1CUoOcqfXFl1s=

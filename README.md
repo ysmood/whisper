@@ -6,7 +6,9 @@ A simple lib to encrypt, decrypt data with [ECC](https://en.wikipedia.org/wiki/E
 
 ## Installation
 
-Go to the [release page](https://github.com/ysmood/whisper/releases).
+Use it as [lib](https://pkg.go.dev/github.com/ysmood/whisper) or CLI tool.
+
+Go to the [release page](https://github.com/ysmood/whisper/releases) to download the CLI binary.
 
 If you have golang installed:
 
@@ -14,7 +16,7 @@ If you have golang installed:
 go install github.com/ysmood/whisper@latest
 ```
 
-## Usage
+## CLI Usage
 
 ```bash
 whisper -g
@@ -26,5 +28,3 @@ echo 'hello world!' | whisper
 echo 'FVPmYc4x1JilPtF8rMs0n2OlX2' | whisper -d
 # hello world!
 ```
-
-Use it as lib: [link](https://pkg.go.dev/github.com/ysmood/whisper)

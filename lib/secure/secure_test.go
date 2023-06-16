@@ -11,37 +11,55 @@ import (
 func TestBasic(t *testing.T) {
 	g := got.T(t)
 
-	public1, private1, err := secure.GenKeys("test")
+	private1, public1, err := secure.GenKeys("test")
 	g.E(err)
 
-	public2, private2, err := secure.GenKeys("test")
+	private2, public2, err := secure.GenKeys("test")
 	g.E(err)
 
-	key, err := secure.New(public1, private2, "test")
+	private3, public3, err := secure.GenKeys("test")
 	g.E(err)
 
 	buf := bytes.NewBuffer(nil)
-	enc, err := key.Cipher().Encoder(buf)
-	g.E(err)
-	g.E(enc.Write([]byte("ok")))
-	g.E(enc.Close())
 
-	key, err = secure.New(public2, private1, "test")
-	g.E(err)
+	{
+		key, err := secure.New(private1, "test", public2, public3)
+		g.E(err)
 
-	dec, err := key.Cipher().Decoder(buf)
-	g.E(err)
+		enc, err := key.Cipher().Encoder(buf)
+		g.E(err)
+		g.E(enc.Write([]byte("ok")))
+		g.E(enc.Close())
+	}
 
-	g.Eq(g.Read(dec).String(), "ok")
+	{
+		key, err := secure.New(private2, "test", public1)
+		g.E(err)
+
+		dec, err := key.Cipher().Decoder(bytes.NewBuffer(buf.Bytes()))
+		g.E(err)
+
+		g.Eq(g.Read(dec).String(), "ok")
+	}
+
+	{
+		key, err := secure.New(private3, "test", public1)
+		g.E(err)
+
+		dec, err := key.Cipher().Decoder(bytes.NewBuffer(buf.Bytes()))
+		g.E(err)
+
+		g.Eq(g.Read(dec).String(), "ok")
+	}
 }
 
 func TestSelfPrivateKey(t *testing.T) {
 	g := got.T(t)
 
-	public, private, err := secure.GenKeys("test")
+	private, public, err := secure.GenKeys("test")
 	g.E(err)
 
-	key, err := secure.New(public, private, "test")
+	key, err := secure.New(private, "test", public)
 	g.E(err)
 
 	buf := bytes.NewBuffer(nil)
@@ -61,10 +79,10 @@ func TestSigner(t *testing.T) {
 
 	data := bytes.Repeat([]byte("ok"), 10000)
 
-	public, private, err := secure.GenKeys("test")
+	private, public, err := secure.GenKeys("test")
 	g.E(err)
 
-	key, err := secure.New(public, private, "test")
+	key, err := secure.New(private, "test", public)
 	g.E(err)
 
 	buf := bytes.NewBuffer(nil)
@@ -79,25 +97,19 @@ func TestSigner(t *testing.T) {
 	g.Eq(g.Read(dec).Bytes(), data)
 }
 
-func TestAESKey(t *testing.T) {
+func TestECDH(t *testing.T) {
 	g := got.T(t)
 
-	public1, private1, err := secure.GenKeys("1")
+	private1, err := secure.GenKey()
 	g.E(err)
 
-	public2, private2, err := secure.GenKeys("2")
+	private2, err := secure.GenKey()
 	g.E(err)
 
-	key1, err := secure.New(public2, private1, "1")
+	aes1, err := secure.ECDH(private1, &private2.PublicKey)
 	g.E(err)
 
-	key2, err := secure.New(public1, private2, "2")
-	g.E(err)
-
-	aes1, err := key1.AESKey()
-	g.E(err)
-
-	aes2, err := key2.AESKey()
+	aes2, err := secure.ECDH(private2, &private1.PublicKey)
 	g.E(err)
 
 	g.Eq(aes1, aes2)

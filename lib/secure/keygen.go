@@ -12,7 +12,7 @@ func GenKey() (*ecdsa.PrivateKey, error) {
 }
 
 // GenKeys generate a pair of keys in base64 format.
-func GenKeys(passphrase string) (public []byte, private []byte, err error) {
+func GenKeys(passphrase string) (private []byte, public []byte, err error) {
 	key, err := GenKey()
 	if err != nil {
 		return
@@ -23,7 +23,7 @@ func GenKeys(passphrase string) (public []byte, private []byte, err error) {
 		return
 	}
 
-	private, err = EncryptAES(passphrase, private)
+	private, err = EncryptAES([]byte(passphrase), private)
 	if err != nil {
 		return
 	}

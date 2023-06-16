@@ -21,8 +21,12 @@ func main() {
 	flags := flag.NewFlagSet("whisper", flag.ExitOnError)
 
 	decryptMode := flags.Bool("d", false, "decrypt mode")
+
 	privateKey := flags.String("k", defaultKeyName, "private key path")
-	publicKey := flags.String("p", "", "the public key, it can be a local file path or https url")
+
+	var publicKeys publicKeysFlag
+	flags.Var(&publicKeys, "p", "the public keys, each can be a local file path or https url")
+
 	bin := flags.Bool("b", false, "encoding data as binary instead of base64")
 
 	compressLevel := flags.Int("c", gzip.DefaultCompression, "gzip compression level")
@@ -52,14 +56,18 @@ func main() {
 		return
 	}
 
+	if publicKeys == nil {
+		publicKeys = publicKeysFlag{pubKeyName(defaultKeyName)}
+	}
+
 	wp, err := whisper.New(
-		whisper.PublicKey(getPublicKey(*publicKey, pubKeyName(*privateKey))),
+		*compressLevel,
+		!*bin,
 		whisper.PrivateKey{
 			Data:       getKey(*privateKey),
 			Passphrase: pass,
 		},
-		*compressLevel,
-		!*bin,
+		getPublicKeys(publicKeys)...,
 	)
 	if err != nil {
 		panic(err)
@@ -87,6 +95,14 @@ func process(decrypt bool, wp piper.EncodeDecoder, in io.ReadCloser, out io.Writ
 	if err != nil {
 		panic(err)
 	}
+}
+
+func getPublicKeys(paths []string) []whisper.PublicKey {
+	list := []whisper.PublicKey{}
+	for _, p := range paths {
+		list = append(list, whisper.PublicKey(getPublicKey(p)))
+	}
+	return list
 }
 
 func getKey(keyFile string) string {
@@ -132,7 +148,7 @@ func getOutput(file string) io.WriteCloser {
 }
 
 func genKeys(passphrase, out string) {
-	public, private, err := secure.GenKeys(passphrase)
+	private, public, err := secure.GenKeys(passphrase)
 	if err != nil {
 		panic(err)
 	}
@@ -150,10 +166,8 @@ func genKeys(passphrase, out string) {
 	fmt.Println("Keys generated successfully:", out)
 }
 
-func getPublicKey(p, fallback string) string {
-	if p == "" {
-		p = fallback
-	} else if strings.HasPrefix(p, "https://") {
+func getPublicKey(p string) string {
+	if strings.HasPrefix(p, "https://") {
 		res, err := http.Get(p) //nolint:noctx
 		if err != nil {
 			panic(err)
@@ -173,4 +187,15 @@ func getPublicKey(p, fallback string) string {
 
 func pubKeyName(prv string) string {
 	return prv + "_pub"
+}
+
+type publicKeysFlag []string
+
+func (i *publicKeysFlag) String() string {
+	return strings.Join(*i, ", ")
+}
+
+func (i *publicKeysFlag) Set(value string) error {
+	*i = append(*i, value)
+	return nil
 }

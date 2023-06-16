@@ -14,10 +14,10 @@ func TestAESCipher(t *testing.T) {
 		key := g.RandBytes(16)
 		data := g.RandBytes(size)
 
-		en, err := secure.EncryptAES(string(key), data)
+		en, err := secure.EncryptAES(key, data)
 		g.E(err)
 
-		de, err := secure.DecryptAES(string(key), en)
+		de, err := secure.DecryptAES(key, en)
 		g.E(err)
 
 		g.Eq(de, data)
