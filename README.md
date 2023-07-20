@@ -6,7 +6,7 @@ A simple lib to encrypt, decrypt data with [ECC](https://en.wikipedia.org/wiki/E
 
 ## Installation
 
-Use it as [lib](https://pkg.go.dev/github.com/ysmood/whisper) or CLI tool.
+Use it as [lib](https://pkg.go.dev/github.com/ysmood/whisper/lib) or CLI tool.
 
 Go to the [release page](https://github.com/ysmood/whisper/releases) to download the CLI binary.
 
