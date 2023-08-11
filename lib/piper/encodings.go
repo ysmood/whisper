@@ -12,6 +12,24 @@ import (
 	"io"
 )
 
+type Transparent struct{}
+
+func (t *Transparent) Encoder(w io.Writer) (io.WriteCloser, error) {
+	if wc, ok := w.(io.WriteCloser); ok {
+		return wc, nil
+	}
+
+	return NopCloser(w), nil
+}
+
+func (t *Transparent) Decoder(r io.Reader) (io.ReadCloser, error) {
+	if rc, ok := r.(io.ReadCloser); ok {
+		return rc, nil
+	}
+
+	return io.NopCloser(r), nil
+}
+
 type Base64 struct {
 	Encoding *base64.Encoding
 }

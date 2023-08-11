@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
 	"errors"
 	"io"
 
@@ -18,33 +17,32 @@ type Key struct {
 	prv *ecdsa.PrivateKey
 }
 
-// New Key.
 func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Key, error) {
 	pub := []*ecdsa.PublicKey{}
 	for _, publicKey := range publicKeys {
-		key, err := x509.ParsePKIXPublicKey(publicKey)
+		key, err := SSHPubKey(publicKey)
 		if err != nil {
 			return nil, err
 		}
-		pub = append(pub, key.(*ecdsa.PublicKey))
+
+		pub = append(pub, key)
 	}
 
-	keyData, err := DecryptAES([]byte(passphrase), privateKey)
-	if err != nil {
-		return nil, err
-	}
-
-	prv, err := x509.ParsePKCS8PrivateKey(keyData)
+	prv, err := SSHKey(privateKey, passphrase)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Key{
 		pub: pub,
-		prv: prv.(*ecdsa.PrivateKey),
+		prv: prv,
 	}, nil
 }
 
+// AESKeys returns the AES key and encrypted keys for each public key.
+// If there's only one public key, the AES key will be the ECDH key.
+// If there're multiple public keys, a random base AES key will be generated,
+// then each ECDH key will be used to encrypt the base AES key.
 func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 	if len(k.pub) == 1 {
 		key, err := ECDH(k.prv, k.pub[0])
@@ -95,7 +93,10 @@ func (k *Key) Cipher() *Cipher {
 }
 
 // Encoder format is:
-// [encrypted key count][encrypted key 1][encrypted key 2]...[encrypted data].
+//
+//	[encrypted key count][aes key 1][aes key 2]...[encrypted data].
+//
+// Each key is for a public key.
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 	aesKey, encryptedKeys, err := c.Key.AESKeys()
 	if err != nil {

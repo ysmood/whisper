@@ -3,8 +3,11 @@ package piper
 import "io"
 
 type EncodeDecoder interface {
-	Encoder(io.Writer) (io.WriteCloser, error)
-	Decoder(io.Reader) (io.ReadCloser, error)
+	// Encoder returns a writer that will encode data to out.
+	Encoder(out io.Writer) (io.WriteCloser, error)
+
+	// Decoder returns a reader that will decode the data from in.
+	Decoder(in io.Reader) (io.ReadCloser, error)
 }
 
 type EncodeDecoderFn struct {
