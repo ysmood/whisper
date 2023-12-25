@@ -1,7 +1,10 @@
 package secure
 
 import (
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -9,9 +12,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var ErrNotECDSAKey = errors.New("not an ECDSA key")
+var ErrNotSupportedKey = errors.New("not an supported key")
 
-func SSHPubKey(publicKey []byte) (*ecdsa.PublicKey, error) {
+func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 	for len(publicKey) > 0 {
 		var key ssh.PublicKey
 		var err error
@@ -21,19 +24,23 @@ func SSHPubKey(publicKey []byte) (*ecdsa.PublicKey, error) {
 			return nil, err
 		}
 
-		eKey, ok := key.(ssh.CryptoPublicKey).CryptoPublicKey().(*ecdsa.PublicKey)
-		if !ok {
+		switch eKey := key.(ssh.CryptoPublicKey).CryptoPublicKey().(type) {
+		case *ecdsa.PublicKey:
+			return eKey, nil
+		case *rsa.PublicKey:
+			return eKey, nil
+		case ed25519.PublicKey:
+			return eKey, nil
+		default:
 			continue
 		}
-
-		return eKey, nil
 	}
 
-	return nil, fmt.Errorf("%w, can't find public key", ErrNotECDSAKey)
+	return nil, fmt.Errorf("%w, can't find public key", ErrNotSupportedKey)
 }
 
 // SSHKey returns a private key from a ssh private key.
-func SSHKey(keyData []byte, passphrase string) (*ecdsa.PrivateKey, error) {
+func SSHKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 	var key interface{}
 	var err error
 	if passphrase == "" {
@@ -45,12 +52,16 @@ func SSHKey(keyData []byte, passphrase string) (*ecdsa.PrivateKey, error) {
 		return nil, err
 	}
 
-	ecKey, ok := key.(*ecdsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("%w, got: %T", ErrNotECDSAKey, key)
+	switch eKey := key.(type) {
+	case *ecdsa.PrivateKey:
+		return eKey, nil
+	case *rsa.PrivateKey:
+		return eKey, nil
+	case *ed25519.PrivateKey:
+		return *eKey, nil
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
-
-	return ecKey, nil
 }
 
 func IsAuthErr(err error) bool {

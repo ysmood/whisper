@@ -1,11 +1,15 @@
 package secure
 
 import (
+	"crypto"
 	"crypto/aes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/ysmood/byframe/v4"
@@ -13,12 +17,12 @@ import (
 )
 
 type Key struct {
-	pub []*ecdsa.PublicKey
-	prv *ecdsa.PrivateKey
+	pub []crypto.PublicKey
+	prv crypto.PrivateKey
 }
 
 func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Key, error) {
-	pub := []*ecdsa.PublicKey{}
+	pub := []crypto.PublicKey{}
 	for _, publicKey := range publicKeys {
 		key, err := SSHPubKey(publicKey)
 		if err != nil {
@@ -44,8 +48,12 @@ func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Key, erro
 // If there're multiple public keys, a random base AES key will be generated,
 // then each ECDH key will be used to encrypt the base AES key.
 func (k *Key) AESKeys() ([]byte, [][]byte, error) {
+	if k.IsRSA() {
+		return k.rsaAESKeys()
+	}
+
 	if len(k.pub) == 1 {
-		key, err := ECDH(k.prv, k.pub[0])
+		key, err := SharedSecret(k.prv, k.pub[0])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -60,7 +68,7 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range k.pub {
-		key, err := ECDH(k.prv, pub)
+		key, err := SharedSecret(k.prv, pub)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -76,12 +84,56 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 	return aesKey, encryptedKeys, nil
 }
 
+func (k *Key) rsaAESKeys() ([]byte, [][]byte, error) {
+	encryptedKeys := [][]byte{}
+
+	secretKey := make([]byte, 32)
+	_, err := rand.Read(secretKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, pub := range k.pub {
+		pubKey := pub.(*rsa.PublicKey)
+		encryptedKey, err := rsaEncrypt(pubKey, secretKey)
+		if err != nil {
+			return nil, nil, err
+		}
+		encryptedKeys = append(encryptedKeys, encryptedKey)
+	}
+
+	return secretKey, encryptedKeys, nil
+}
+
 func (k *Key) Sign(digest []byte) ([]byte, error) {
-	return k.prv.Sign(rand.Reader, digest, nil)
+	switch key := k.prv.(type) {
+	case *ecdsa.PrivateKey:
+		return key.Sign(rand.Reader, digest, nil)
+	case *rsa.PrivateKey:
+		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest)
+	case ed25519.PrivateKey:
+		return key.Sign(rand.Reader, digest, nil)
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, k.prv)
+	}
 }
 
 func (k *Key) Verify(digest, sign []byte) bool {
-	return ecdsa.VerifyASN1(k.pub[0], digest, sign)
+	switch key := k.pub[0].(type) {
+	case *ecdsa.PublicKey:
+		return ecdsa.VerifyASN1(key, digest, sign)
+	case *rsa.PublicKey:
+		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sign) == nil
+	case ed25519.PublicKey:
+		return ed25519.Verify(key, digest, sign)
+	default:
+		return false
+	}
+}
+
+func (k *Key) IsRSA() bool {
+	_, ok := k.prv.(*rsa.PrivateKey)
+	return ok
 }
 
 type Cipher struct {
@@ -137,14 +189,35 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
 
-	key, err := ECDH(c.Key.prv, c.Key.pub[0])
+	aesKey, err := c.DecodeAESKey(encryptedKeys)
 	if err != nil {
 		return nil, err
 	}
 
+	return piper.NewAES(aesKey).Decoder(r)
+}
+
+func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var aesKey []byte
 
-	if count == 0 {
+	if c.Key.IsRSA() {
+		for _, encryptedKey := range encryptedKeys {
+			var err error
+			aesKey, err = rsaDecrypt(c.Key.prv.(*rsa.PrivateKey), encryptedKey)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return aesKey, nil
+	}
+
+	key, err := SharedSecret(c.Key.prv, c.Key.pub[0])
+	if err != nil {
+		return nil, err
+	}
+
+	if len(encryptedKeys) == 0 {
 		aesKey = key
 	} else {
 		for _, encryptedKey := range encryptedKeys {
@@ -157,7 +230,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		}
 	}
 
-	return piper.NewAES(aesKey).Decoder(r)
+	return aesKey, nil
 }
 
 type Signer struct {
@@ -251,16 +324,30 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 	}, nil
 }
 
-func ECDH(prv *ecdsa.PrivateKey, pub *ecdsa.PublicKey) ([]byte, error) {
-	private, err := prv.ECDH()
-	if err != nil {
-		return nil, err
-	}
+func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		private, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
 
-	public, err := pub.ECDH()
-	if err != nil {
-		return nil, err
-	}
+		public, err := pub.(*ecdsa.PublicKey).ECDH()
+		if err != nil {
+			return nil, err
+		}
 
-	return private.ECDH(public)
+		return private.ECDH(public)
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+	}
+}
+
+func rsaEncrypt(pub *rsa.PublicKey, data []byte) ([]byte, error) {
+	return rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, data, nil)
+}
+
+func rsaDecrypt(prv *rsa.PrivateKey, data []byte) ([]byte, error) {
+	return rsa.DecryptOAEP(sha256.New(), rand.Reader, prv, data, nil)
 }

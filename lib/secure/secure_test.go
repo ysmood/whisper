@@ -72,6 +72,35 @@ func TestSSHKey(t *testing.T) {
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
+func TestSSHKey_rsa(t *testing.T) {
+	g := got.T(t)
+
+	key01, err := secure.New(
+		g.Read("test_data/id_rsa01").Bytes(),
+		"test",
+		g.Read("test_data/id_rsa02.pub").Bytes(),
+	)
+	g.E(err)
+
+	key02, err := secure.New(
+		g.Read("test_data/id_rsa02").Bytes(),
+		"test",
+		g.Read("test_data/id_rsa01.pub").Bytes(),
+	)
+	g.E(err)
+
+	buf := bytes.NewBuffer(nil)
+	enc, err := key01.Cipher().Encoder(buf)
+	g.E(err)
+	g.E(enc.Write([]byte("ok")))
+	g.E(enc.Close())
+
+	dec, err := key02.Cipher().Decoder(buf)
+	g.E(err)
+
+	g.Eq(g.Read(dec).String(), "ok")
+}
+
 func TestSelfPrivateKey(t *testing.T) {
 	g := got.T(t)
 

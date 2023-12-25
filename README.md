@@ -2,7 +2,8 @@
 
 # Overview
 
-A simple lib to encrypt, decrypt data with [ECC](https://en.wikipedia.org/wiki/Elliptic-curve_cryptography).
+A simple lib to encrypt, decrypt data with [Public-key cryptography](https://en.wikipedia.org/wiki/Public-key_cryptography).
+Now only [RSA](<https://en.wikipedia.org/wiki/RSA_(cryptosystem)>) and [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm) are supported.
 
 ## CLI tool
 
