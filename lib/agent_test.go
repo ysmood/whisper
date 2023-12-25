@@ -3,6 +3,8 @@ package whisper_test
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
+	"log/slog"
 	"net"
 	"testing"
 
@@ -28,6 +30,7 @@ func TestAgentVersionMismatch(t *testing.T) {
 	g := got.T(t)
 
 	s := whisper.NewAgentServer()
+	s.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	l, err := net.Listen("tcp", ":0")
 	g.E(err)

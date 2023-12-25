@@ -37,15 +37,15 @@ var _ = func() int {
 // to have root permission and dump the os memory.
 // If the server restarts you have to send it to server again.
 type AgentServer struct {
-	listener net.Listener
-	logger   *slog.Logger
+	Logger *slog.Logger
 
-	cache *privateKeyCache
+	listener net.Listener
+	cache    *privateKeyCache
 }
 
 func NewAgentServer() *AgentServer {
 	return &AgentServer{
-		logger: slog.Default(),
+		Logger: slog.Default(),
 		cache: &privateKeyCache{
 			cache: map[[md5.Size]byte]string{},
 		},
@@ -69,7 +69,7 @@ func (a *AgentServer) Listen(l net.Listener) {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			a.logger.Error("accept error", "err", err)
+			a.Logger.Warn("accept error", "err", err)
 			break
 		}
 
@@ -81,7 +81,7 @@ func (a *AgentServer) Listen(l net.Listener) {
 			if err != nil {
 				err := s.End([]byte(err.Error()))
 				if err != nil {
-					a.logger.Error("ender error", "err", err)
+					a.Logger.Warn("ender error", "err", err)
 				}
 			}
 		}()
@@ -104,6 +104,7 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error { //nolint: cyclop,funl
 			return a.res(s, AgentRes{Running: true})
 		}
 
+		a.Logger.Warn("version mismatch, close server", "server", Version(), "client", req.Version)
 		return a.listener.Close()
 	}
 
@@ -221,12 +222,7 @@ func IsAgentRunning(addr, version string) bool {
 		panic(err)
 	}
 
-	defer func() { _ = stream.Close() }()
-
-	err = stream.End(nil)
-	if err != nil {
-		return false
-	}
+	_ = stream.Close()
 
 	return res.Running
 }
