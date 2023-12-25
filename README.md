@@ -42,14 +42,14 @@ cat encrypted | whisper -d
 ```
 
 Here is an example to encrypt and decrypt for others, the encrypted data can only be decrypted by their public key.
-Suppose we have a public key file `jack.pub` and a private key file `jack`.
+Suppose we have key pair for Jack `jack.pub` and `jack`, and key pair for Tim `tim.pub` and `tim`.
 
 ```bash
-# Encrypt file plain to file encrypted
-whisper -p='jack.pub' plain > encrypted
+# Encrypt file that can only be decrypted by Tim
+whisper -k 'jack' -p='tim.pub' plain > encrypted
 
 # Decrypt file encrypted to stdout
-whisper -d -k='jack' encrypted
+whisper -d -k='tim' -p 'jack' encrypted
 ```
 
 You can also use a url for a remote public key file.
@@ -65,4 +65,10 @@ whisper -p='@ysmood' plain > encrypted
 # A authorized_keys file may contain several keys, you can add a suffix to select a specific key.
 # 'tbml' is the substring of the key content we want to use.
 whisper -p='@ysmood:tbml' plain > encrypted
+
+# Encrypt content for multiple recipients, such as Jack and Tim.
+whisper -p='@jack' -p='@tim' plain > encrypted
+
+# Decrypt on Jack's machine, the machine has Jack's private key.
+whisper -d -p='@ysmood' encrypted
 ```
