@@ -31,15 +31,20 @@ var _ = func() int {
 	return 0
 }()
 
-type AgentSever struct {
+// AgentServer is a tcp server that can be used to avoid inputting the passphrase every time.
+// It will do the encryption and decryption for you, not the cli client.
+// There's no way to get the passphrase from the tcp client, the only way to get the passphrase is
+// to have root permission and dump the os memory.
+// If the server restarts you have to send it to server again.
+type AgentServer struct {
 	listener net.Listener
 	logger   *slog.Logger
 
 	cache *privateKeyCache
 }
 
-func NewAgentServer() *AgentSever {
-	return &AgentSever{
+func NewAgentServer() *AgentServer {
+	return &AgentServer{
 		logger: slog.Default(),
 		cache: &privateKeyCache{
 			cache: map[[md5.Size]byte]string{},
@@ -48,7 +53,7 @@ func NewAgentServer() *AgentSever {
 }
 
 // Serve start a http server to avoid inputting the passphrase every time.
-func (a *AgentSever) Serve(addr string) {
+func (a *AgentServer) Serve(addr string) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
@@ -58,7 +63,7 @@ func (a *AgentSever) Serve(addr string) {
 }
 
 // Serve start a http server to avoid inputting the passphrase every time.
-func (a *AgentSever) Listen(l net.Listener) {
+func (a *AgentServer) Listen(l net.Listener) {
 	a.listener = l
 
 	for {
@@ -83,7 +88,7 @@ func (a *AgentSever) Listen(l net.Listener) {
 	}
 }
 
-func (a *AgentSever) Handle(s io.ReadWriteCloser) error { //nolint: cyclop,funlen
+func (a *AgentServer) Handle(s io.ReadWriteCloser) error { //nolint: cyclop,funlen
 	b, err := byframe.NewScanner(s).Next()
 	if err != nil {
 		return err
@@ -147,7 +152,7 @@ func (a *AgentSever) Handle(s io.ReadWriteCloser) error { //nolint: cyclop,funle
 	return w.Close()
 }
 
-func (a *AgentSever) cacheLoadPrivate(conf *Config) {
+func (a *AgentServer) cacheLoadPrivate(conf *Config) {
 	if conf.Private.Passphrase != "" {
 		return
 	}
@@ -158,12 +163,12 @@ func (a *AgentSever) cacheLoadPrivate(conf *Config) {
 	}
 }
 
-func (a *AgentSever) cachePrivate(p PrivateKey) {
+func (a *AgentServer) cachePrivate(p PrivateKey) {
 	key := md5.Sum(p.Data)
 	a.cache.Set(key, p.Passphrase)
 }
 
-func (a *AgentSever) res(s io.Writer, res AgentRes) error {
+func (a *AgentServer) res(s io.Writer, res AgentRes) error {
 	b, err := encode(res)
 	if err != nil {
 		return err
