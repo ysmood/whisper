@@ -10,6 +10,7 @@ import (
 
 	"github.com/ysmood/got"
 	whisper "github.com/ysmood/whisper/lib"
+	"github.com/ysmood/whisper/lib/secure"
 )
 
 func TestAgentVersionMatch(t *testing.T) {
@@ -60,7 +61,7 @@ func TestAgentEncode(t *testing.T) {
 		GzipLevel: gzip.DefaultCompression,
 		Base64:    true,
 		Private:   prv,
-		Public:    [][]byte{pub},
+		Public:    []secure.KeyWithFilter{{Key: pub}},
 	}
 
 	in := bytes.NewBufferString("hello")
@@ -93,7 +94,7 @@ func TestAgentDecode(t *testing.T) { //nolint:funlen
 		GzipLevel: gzip.DefaultCompression,
 		Base64:    true,
 		Private:   prv,
-		Public:    [][]byte{pub},
+		Public:    []secure.KeyWithFilter{{Key: pub}},
 	}
 
 	encoded := []byte("AQDCRtKH43W_QilOxCmrm5Ew_jv7UKDyyaNc8558QKgFydkAIRiurj1K2SvvH-LKhA")

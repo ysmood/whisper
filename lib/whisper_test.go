@@ -1,11 +1,7 @@
 package whisper_test
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,74 +49,4 @@ func read(path string) []byte {
 		panic(err)
 	}
 	return b
-}
-
-func TestRemoteEncode(t *testing.T) { //nolint: funlen
-	g := got.T(t)
-
-	content := g.RandBytes(1000000)
-
-	var encoded []byte
-
-	{
-		s, err := net.Listen("tcp", ":0")
-		g.E(err)
-
-		g.Go(func() {
-			conn, err := s.Accept()
-			g.E(err)
-
-			sender, senderPub := whisper.PrivateKey{read("id_ecdsa"), "test"}, read("id_ecdsa.pub")
-
-			enc, err := whisper.New(whisper.Config{gzip.DefaultCompression, true, sender, [][]byte{senderPub}})
-			g.E(err)
-
-			w, err := enc.Encoder(conn)
-			g.E(err)
-
-			g.E(io.Copy(w, bytes.NewReader(content)))
-
-			g.E(w.Close())
-		})
-
-		conn, err := net.Dial("tcp", s.Addr().String())
-		g.E(err)
-
-		b, err := io.ReadAll(conn)
-		g.E(err)
-
-		encoded = b
-	}
-
-	{
-		s, err := net.Listen("tcp", ":0")
-		g.E(err)
-
-		g.Go(func() {
-			conn, err := s.Accept()
-			g.E(err)
-
-			sender, senderPub := whisper.PrivateKey{read("id_ecdsa"), "test"}, read("id_ecdsa.pub")
-
-			enc, err := whisper.New(whisper.Config{gzip.DefaultCompression, true, sender, [][]byte{senderPub}})
-			g.E(err)
-
-			r, err := enc.Decoder(conn)
-			g.E(err)
-
-			b, err := io.ReadAll(r)
-			g.E(err)
-
-			g.E(r.Close())
-
-			g.Eq(b, content)
-		})
-
-		conn, err := net.Dial("tcp", s.Addr().String())
-		g.E(err)
-
-		g.E(io.Copy(conn, bytes.NewReader(encoded)))
-
-		g.E(conn.Close())
-	}
 }

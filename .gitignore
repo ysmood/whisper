@@ -1,3 +1,2 @@
-*.json
+*.out
 tmp/
-/ecc_key*

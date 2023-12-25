@@ -3,6 +3,7 @@ package whisper
 import (
 	"crypto/md5"
 	"encoding/gob"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -14,14 +15,16 @@ import (
 )
 
 type AgentReq struct {
-	Version string
-	Decrypt bool
-	Config  Config
+	Version   string
+	Decrypt   bool
+	PublicKey secure.KeyWithFilter
+	Config    Config
 }
 
 type AgentRes struct {
 	Running         bool
 	WrongPassphrase bool
+	WrongPublicKey  bool
 }
 
 var _ = func() int {
@@ -69,8 +72,13 @@ func (a *AgentServer) Listen(l net.Listener) {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				a.Logger.Info("listener closed")
+				return
+			}
+
 			a.Logger.Warn("accept error", "err", err)
-			break
+			continue
 		}
 
 		go func() {
@@ -120,6 +128,11 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error { //nolint: cyclop,funl
 	}
 
 	a.cachePrivate(req.Config.Private)
+
+	if req.PublicKey.Key != nil &&
+		!secure.Belongs(req.PublicKey, req.Config.Private.Data, req.Config.Private.Passphrase) {
+		return a.res(s, AgentRes{WrongPublicKey: true})
+	}
 
 	err = a.res(s, AgentRes{})
 	if err != nil {
@@ -190,6 +203,10 @@ func CallAgent(addr string, req AgentReq, in io.Reader, out io.Writer) bool {
 
 	if res.WrongPassphrase {
 		return false
+	}
+
+	if res.WrongPublicKey {
+		panic("the public key from option -a doesn't belong to the private key")
 	}
 
 	go func() {

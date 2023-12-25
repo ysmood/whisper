@@ -13,14 +13,12 @@ type Config struct {
 	GzipLevel int
 	Base64    bool
 	Private   PrivateKey
-	Public    [][]byte
+	Public    []secure.KeyWithFilter
 }
 
 // New data encoding flow:
 //
 //	data -> gzip -> encrypt -> base64
-//
-// Only gzip is required, others are optional.
 func New(conf Config) (piper.EncodeDecoder, error) {
 	key, err := secure.New(conf.Private.Data, conf.Private.Passphrase, conf.Public...)
 	if err != nil {
@@ -56,7 +54,7 @@ func DecodeString(data string, receiver PrivateKey, sender []byte) (string, erro
 func Encode(data []byte, sender PrivateKey, receivers ...[]byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	wp, err := New(Config{gzip.DefaultCompression, true, sender, receivers})
+	wp, err := New(Config{gzip.DefaultCompression, true, sender, toKeyWithFilters(receivers)})
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +75,7 @@ func Encode(data []byte, sender PrivateKey, receivers ...[]byte) ([]byte, error)
 }
 
 func Decode(data []byte, receiver PrivateKey, sender []byte) ([]byte, error) {
-	wp, err := New(Config{0, true, receiver, [][]byte{sender}})
+	wp, err := New(Config{0, true, receiver, toKeyWithFilters([][]byte{sender})})
 	if err != nil {
 		return nil, err
 	}

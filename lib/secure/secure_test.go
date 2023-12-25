@@ -10,12 +10,19 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+func getPubKey(g got.G, file string) secure.KeyWithFilter {
+	return secure.KeyWithFilter{
+		Key:    g.Read(file).Bytes(),
+		Filter: "",
+	}
+}
+
 func TestBasic(t *testing.T) {
 	g := got.T(t)
 
-	private1, public1 := g.Read("test_data/id_ecdsa01").Bytes(), g.Read("test_data/id_ecdsa01.pub").Bytes()
-	private2, public2 := g.Read("test_data/id_ecdsa02").Bytes(), g.Read("test_data/id_ecdsa02.pub").Bytes()
-	private3, public3 := g.Read("test_data/id_ecdsa03").Bytes(), g.Read("test_data/id_ecdsa03.pub").Bytes()
+	private1, public1 := g.Read("test_data/id_ecdsa01").Bytes(), getPubKey(g, "test_data/id_ecdsa01.pub")
+	private2, public2 := g.Read("test_data/id_ecdsa02").Bytes(), getPubKey(g, "test_data/id_ecdsa02.pub")
+	private3, public3 := g.Read("test_data/id_ecdsa03").Bytes(), getPubKey(g, "test_data/id_ecdsa03.pub")
 
 	buf := bytes.NewBuffer(nil)
 
@@ -56,7 +63,7 @@ func TestSSHKey(t *testing.T) {
 	key, err := secure.New(
 		g.Read("test_data/id_ecdsa").Bytes(),
 		"test",
-		g.Read("test_data/id_ecdsa.pub").Bytes(),
+		getPubKey(g, "test_data/id_ecdsa.pub"),
 	)
 	g.E(err)
 
@@ -78,14 +85,14 @@ func TestSSHKey_rsa(t *testing.T) {
 	key01, err := secure.New(
 		g.Read("test_data/id_rsa01").Bytes(),
 		"test",
-		g.Read("test_data/id_rsa02.pub").Bytes(),
+		getPubKey(g, "test_data/id_rsa02.pub"),
 	)
 	g.E(err)
 
 	key02, err := secure.New(
 		g.Read("test_data/id_rsa02").Bytes(),
 		"test",
-		g.Read("test_data/id_rsa01.pub").Bytes(),
+		getPubKey(g, "test_data/id_rsa01.pub"),
 	)
 	g.E(err)
 
@@ -104,7 +111,7 @@ func TestSSHKey_rsa(t *testing.T) {
 func TestSelfPrivateKey(t *testing.T) {
 	g := got.T(t)
 
-	private, public := g.Read("test_data/id_ecdsa").Bytes(), g.Read("test_data/id_ecdsa.pub").Bytes()
+	private, public := g.Read("test_data/id_ecdsa").Bytes(), getPubKey(g, "test_data/id_ecdsa.pub")
 
 	key, err := secure.New(private, "test", public)
 	g.E(err)
@@ -126,31 +133,44 @@ func TestSigner(t *testing.T) {
 
 	data := bytes.Repeat([]byte("ok"), 10000)
 
-	private, public := g.Read("test_data/id_ecdsa").Bytes(), g.Read("test_data/id_ecdsa.pub").Bytes()
+	private, public := g.Read("test_data/id_ecdsa").Bytes(), getPubKey(g, "test_data/id_ecdsa.pub")
 
 	key, err := secure.New(private, "test", public)
 	g.E(err)
 
-	buf := bytes.NewBuffer(nil)
-	enc, err := key.Signer().Encoder(buf)
-	g.E(err)
-	g.E(enc.Write(data))
-	g.E(enc.Close())
-
-	dec, err := key.Signer().Decoder(buf)
+	signed, err := key.Sign(data)
 	g.E(err)
 
-	g.Eq(g.Read(dec).Bytes(), data)
+	rest, valid := key.Verify(signed)
+	g.True(valid)
+
+	g.Eq(rest, data)
 }
 
 func TestWrongPassphrase(t *testing.T) {
 	g := got.T(t)
 
-	_, err := secure.SSHKey(g.Read("test_data/id_ecdsa").Bytes(), "wrong")
+	_, err := secure.SSHPrvKey(g.Read("test_data/id_ecdsa").Bytes(), "wrong")
 	g.Eq(err, x509.IncorrectPasswordError)
 	g.True(secure.IsAuthErr(err))
 
-	_, err = secure.SSHKey(g.Read("test_data/id_ecdsa").Bytes(), "")
+	_, err = secure.SSHPrvKey(g.Read("test_data/id_ecdsa").Bytes(), "")
 	e := &ssh.PassphraseMissingError{}
 	g.Eq(err.Error(), e.Error())
+}
+
+func TestBelongs(t *testing.T) {
+	g := got.T(t)
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_ecdsa.pub"),
+		g.Read("test_data/id_ecdsa").Bytes(),
+		"test",
+	))
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_rsa01.pub"),
+		g.Read("test_data/id_rsa01").Bytes(),
+		"test",
+	))
 }

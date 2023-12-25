@@ -22,8 +22,11 @@ func main() { //nolint: funlen
 	privateKey := flags.String("k", DEFAULT_KEY_NAME, "private key path")
 	passphrase := flags.String("s", "", "passphrase to decrypt the private key")
 
+	addPublicKey := flags.String("a", "",
+		`add public key to the beginning of the output, can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
+
 	var publicKeys publicKeysFlag
-	flags.Var(&publicKeys, "p", "the public keys, each can be a local file path or https url")
+	flags.Var(&publicKeys, "p", `the public keys, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
 
 	bin := flags.Bool("b", false, "encoding data as binary instead of base64")
 
@@ -53,7 +56,7 @@ func main() { //nolint: funlen
 
 	startAgent()
 
-	if publicKeys == nil {
+	if !*decryptMode && publicKeys == nil {
 		publicKeys = publicKeysFlag{pubKeyName(DEFAULT_KEY_NAME)}
 	}
 
@@ -70,13 +73,13 @@ func main() { //nolint: funlen
 	in := flags.Arg(0)
 	out := *outputFile
 
-	if !callAgent(*decryptMode, conf, in, out) {
+	if !callAgent(*decryptMode, *addPublicKey, conf, in, out) {
 		if in == "" {
 			panic("stdin is used for piping, can't read passphrase from it, please specify the input file path in cli arg")
 		}
 
 		conf.Private.Passphrase = readPassphrase()
-		if !callAgent(*decryptMode, conf, in, out) {
+		if !callAgent(*decryptMode, *addPublicKey, conf, in, out) {
 			panic("wrong passphrase")
 		}
 	}

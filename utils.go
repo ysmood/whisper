@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/ysmood/whisper/lib/piper"
+	"github.com/ysmood/whisper/lib/secure"
 	"golang.org/x/term"
 )
 
-func getPublicKeys(paths []string) [][]byte {
-	list := [][]byte{}
+func getPublicKeys(paths []string) []secure.KeyWithFilter {
+	list := []secure.KeyWithFilter{}
 	for _, p := range paths {
 		list = append(list, getPublicKey(p))
 	}
@@ -63,42 +62,52 @@ func getOutput(file string) io.WriteCloser {
 	return f
 }
 
-func getPublicKey(p string) []byte {
-	filter := ""
-	if ss := strings.Split(p, ":"); len(ss) == 2 {
-		p, filter = ss[0], ss[1]
-	}
-
+func extractRemotePublicKey(p string) (string, bool) {
 	if strings.HasPrefix(p, "@") {
-		p = fmt.Sprintf("https://github.com/%s.keys", p[1:])
+		return p[1:], true
 	}
 
+	return p, false
+}
+
+func extractPublicKeyFilter(p string) (string, string) {
+	if ss := strings.Split(p, ":"); len(ss) == 2 {
+		return ss[0], ss[1]
+	}
+	return p, ""
+}
+
+func toPublicKeyURL(p string) string {
 	if strings.HasPrefix(p, "https://") {
+		return p
+	}
+
+	return fmt.Sprintf("https://github.com/%s.keys", p)
+}
+
+func getPublicKey(p string) secure.KeyWithFilter {
+	p, filter := extractPublicKeyFilter(p)
+
+	p, remote := extractRemotePublicKey(p)
+
+	var key []byte
+	if remote {
+		p = toPublicKeyURL(p)
 		res, err := http.Get(p) //nolint:noctx
 		if err != nil {
 			panic(err)
 		}
 		defer func() { _ = res.Body.Close() }()
 
-		b, err := io.ReadAll(res.Body)
+		key, err = io.ReadAll(res.Body)
 		if err != nil {
 			panic(err)
 		}
-
-		return filterPublicKeys(b, filter)
+	} else {
+		key = getKey(p)
 	}
 
-	return getKey(p)
-}
-
-func filterPublicKeys(b []byte, filter string) []byte {
-	for _, l := range splitIntoLines(b) {
-		if strings.HasPrefix(l, "ecdsa") && strings.Contains(l, filter) {
-			return []byte(l)
-		}
-	}
-
-	panic("public key not found with filter: " + filter)
+	return secure.KeyWithFilter{Key: key, Filter: filter}
 }
 
 func pubKeyName(prv string) string {
@@ -114,16 +123,4 @@ func (i *publicKeysFlag) String() string {
 func (i *publicKeysFlag) Set(value string) error {
 	*i = append(*i, value)
 	return nil
-}
-
-func splitIntoLines(text []byte) []string {
-	scanner := bufio.NewScanner(bytes.NewReader(text))
-	scanner.Split(bufio.ScanLines)
-
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines
 }

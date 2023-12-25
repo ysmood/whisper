@@ -1,10 +1,10 @@
 package secure
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/aes"
 	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -21,20 +21,31 @@ type Key struct {
 	prv crypto.PrivateKey
 }
 
-func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Key, error) {
+func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Key, error) {
+	if len(publicKeys) == 0 {
+		return nil, ErrPubKeyNotFound
+	}
+
+	prv, err := SSHPrvKey(privateKey, passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	typePrefix := PrivateKeyTypePrefix(prv)
+
 	pub := []crypto.PublicKey{}
 	for _, publicKey := range publicKeys {
-		key, err := SSHPubKey(publicKey)
+		b, err := publicKey.GetKey(typePrefix)
+		if err != nil {
+			return nil, err
+		}
+
+		key, err := SSHPubKey(b)
 		if err != nil {
 			return nil, err
 		}
 
 		pub = append(pub, key)
-	}
-
-	prv, err := SSHKey(privateKey, passphrase)
-	if err != nil {
-		return nil, err
 	}
 
 	return &Key{
@@ -99,33 +110,70 @@ func (k *Key) rsaAESKeys() ([]byte, [][]byte, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		encryptedKeys = append(encryptedKeys, encryptedKey)
+
+		signed, err := k.Sign(encryptedKey)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		encryptedKeys = append(encryptedKeys, signed)
 	}
 
 	return secretKey, encryptedKeys, nil
 }
 
-func (k *Key) Sign(digest []byte) ([]byte, error) {
+func (k *Key) Sign(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+
+	w, err := k.Signer().Encoder(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (k *Key) Verify(data []byte) ([]byte, bool) {
+	r, err := k.Signer().Decoder(bytes.NewBuffer(data))
+	if err != nil {
+		return nil, false
+	}
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, false
+	}
+
+	return b, true
+}
+
+func (k *Key) SigDigest(digest []byte) ([]byte, error) {
 	switch key := k.prv.(type) {
 	case *ecdsa.PrivateKey:
 		return key.Sign(rand.Reader, digest, nil)
 	case *rsa.PrivateKey:
 		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest)
-	case ed25519.PrivateKey:
-		return key.Sign(rand.Reader, digest, nil)
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, k.prv)
 	}
 }
 
-func (k *Key) Verify(digest, sign []byte) bool {
+func (k *Key) VerifyDigest(digest, sign []byte) bool {
 	switch key := k.pub[0].(type) {
 	case *ecdsa.PublicKey:
 		return ecdsa.VerifyASN1(key, digest, sign)
 	case *rsa.PublicKey:
 		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sign) == nil
-	case ed25519.PublicKey:
-		return ed25519.Verify(key, digest, sign)
 	default:
 		return false
 	}
@@ -201,7 +249,12 @@ func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var aesKey []byte
 
 	if c.Key.IsRSA() {
-		for _, encryptedKey := range encryptedKeys {
+		for _, signed := range encryptedKeys {
+			encryptedKey, valid := c.Key.Verify(signed)
+			if !valid {
+				continue
+			}
+
 			var err error
 			aesKey, err = rsaDecrypt(c.Key.prv.(*rsa.PrivateKey), encryptedKey)
 			if err != nil {
@@ -264,7 +317,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 			}
 			closed = true
 
-			sign, err := s.Key.Sign(h.Sum(nil))
+			sign, err := s.Key.SigDigest(h.Sum(nil))
 			if err != nil {
 				return err
 			}
@@ -312,7 +365,7 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			if len(sign) == 0 {
 				buf = data
 				n = buf.Consume(p)
-			} else if !s.Key.Verify(h.Sum(nil), sign) {
+			} else if !s.Key.VerifyDigest(h.Sum(nil), sign) {
 				return 0, ErrSignNotMatch
 			}
 

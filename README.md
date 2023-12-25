@@ -55,21 +55,21 @@ whisper -d -k='tim' -p 'jack' encrypted
 
 You can also use a url for a remote public key file.
 Here we use my public key on github to encrypt the data.
-Github generally exposes your public key file at `https://github.com/{YOUR_ID}.keys`.
+Github generally exposes your public key file at `@https://github.com/{YOUR_ID}.keys`.
 
 ```bash
-whisper -p='https://github.com/ysmood.keys' plain > encrypted
+whisper -p='@https://github.com/ysmood.keys' plain > encrypted
 
 # A shortcut the same as above
 whisper -p='@ysmood' plain > encrypted
 
 # A authorized_keys file may contain several keys, you can add a suffix to select a specific key.
 # 'tbml' is the substring of the key content we want to use.
-whisper -p='@ysmood:tbml' plain > encrypted
+whisper -p='@ysmood:ecdsa' plain > encrypted
 
 # Encrypt content for multiple recipients, such as Jack and Tim.
-whisper -p='@jack' -p='@tim' plain > encrypted
+whisper -a='@ysmood' -p='@jack' -p='@tim' plain > encrypted
 
 # Decrypt on Jack's machine, the machine has Jack's private key.
-whisper -d -p='@ysmood' encrypted
+whisper -d encrypted
 ```

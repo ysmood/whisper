@@ -1,12 +1,16 @@
 package main
 
 import (
+	"encoding/base64"
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	whisper "github.com/ysmood/whisper/lib"
+	"github.com/ysmood/whisper/lib/secure"
 )
 
 func runAsAgent() {
@@ -46,7 +50,7 @@ func startAgent() {
 	log.Println("background whisper agent started")
 }
 
-func callAgent(decrypt bool, conf whisper.Config, inFile, outFile string) bool {
+func callAgent(decrypt bool, publicKey string, conf whisper.Config, inFile, outFile string) bool {
 	in := getInput(inFile)
 	defer func() { _ = in.Close() }()
 
@@ -55,5 +59,97 @@ func callAgent(decrypt bool, conf whisper.Config, inFile, outFile string) bool {
 
 	req := whisper.AgentReq{Decrypt: decrypt, Config: conf}
 
+	if decrypt {
+		pub := extractPublicKey(in)
+		if len(req.Config.Public) == 0 {
+			req.Config.Public = append(req.Config.Public, pub)
+		}
+	} else {
+		req.PublicKey = prefixPublicKey(publicKey, out)
+	}
+
 	return whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
+}
+
+// If there's no public key, the output will be prefixed with "_".
+// If the public key is remote, the output will be prefixed with "@", the prefix will end with space.
+// If the public key is local, the output will be prefixed with ".", the prefix will end with space.
+func prefixPublicKey(publicKey string, out io.Writer) secure.KeyWithFilter {
+	if publicKey == "" {
+		_, err := out.Write([]byte("_"))
+		if err != nil {
+			panic(err)
+		}
+		return secure.KeyWithFilter{}
+	}
+
+	key := getPublicKey(publicKey)
+
+	_, remote := extractRemotePublicKey(publicKey)
+
+	var err error
+	if remote {
+		_, err = out.Write([]byte(publicKey))
+	} else {
+		_, err = out.Write([]byte("." + base64.StdEncoding.EncodeToString(key.Key) + ":" + key.Filter))
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = out.Write([]byte(" "))
+	if err != nil {
+		panic(err)
+	}
+
+	return key
+}
+
+func extractPublicKey(in io.Reader) secure.KeyWithFilter {
+	buf := make([]byte, 1)
+	_, err := in.Read(buf)
+	if err != nil {
+		panic(err)
+	}
+
+	getRawPrefix := func() string {
+		raw := []byte{}
+		for {
+			_, err := in.Read(buf)
+			if err != nil {
+				panic(err)
+			}
+
+			if buf[0] == ' ' {
+				break
+			}
+
+			raw = append(raw, buf[0])
+		}
+
+		return string(raw)
+	}
+
+	switch buf[0] {
+	case '@':
+		raw := getRawPrefix()
+		return getPublicKey("@" + raw)
+	case '.':
+		raw := strings.Split(getRawPrefix(), ":")
+		rawKey, filter := raw[0], raw[1]
+
+		key, err := base64.StdEncoding.DecodeString(rawKey)
+		if err != nil {
+			panic(err)
+		}
+
+		return secure.KeyWithFilter{
+			Key:    key,
+			Filter: filter,
+		}
+	default:
+		return secure.KeyWithFilter{
+			Key: getKey(DEFAULT_KEY_NAME + ".pub"),
+		}
+	}
 }
