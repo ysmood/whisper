@@ -75,6 +75,10 @@ func callAgent(decrypt bool, publicKey string, conf whisper.Config, inFile, outF
 // If the public key is remote, the output will be prefixed with "@", the prefix will end with space.
 // If the public key is local, the output will be prefixed with ".", the prefix will end with space.
 func prefixPublicKey(publicKey string, out io.Writer) secure.KeyWithFilter {
+	if publicKey == "." {
+		publicKey = DEFAULT_KEY_NAME + PUB_SUFFIX
+	}
+
 	if publicKey == "" {
 		_, err := out.Write([]byte("_"))
 		if err != nil {
@@ -149,7 +153,7 @@ func extractPublicKey(in io.Reader) secure.KeyWithFilter {
 		}
 	default:
 		return secure.KeyWithFilter{
-			Key: getKey(DEFAULT_KEY_NAME + ".pub"),
+			Key: getKey(DEFAULT_KEY_NAME + PUB_SUFFIX),
 		}
 	}
 }

@@ -70,6 +70,9 @@ whisper -p='@ysmood:ecdsa' plain > encrypted
 # Encrypt content for multiple recipients, such as Jack and Tim.
 whisper -a='@ysmood' -p='@jack' -p='@tim' plain > encrypted
 
+# Or embed the default public key file to the output.
+whisper -a=. -p='@jack' -p='@tim' plain > encrypted
+
 # Decrypt on Jack's machine, the machine has Jack's private key.
 whisper -d encrypted
 ```

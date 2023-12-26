@@ -23,7 +23,8 @@ func main() { //nolint: funlen
 	passphrase := flags.String("s", "", "passphrase to decrypt the private key")
 
 	addPublicKey := flags.String("a", "",
-		`add public key to the beginning of the output, can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
+		`add public key to the beginning of the output, can be a local file path,`+
+			` "@{GITHUB_ID}", "@{HTTPS_URL}, or "." for the default key`)
 
 	var publicKeys publicKeysFlag
 	flags.Var(&publicKeys, "p", `the public keys, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
