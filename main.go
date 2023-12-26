@@ -86,5 +86,10 @@ func main() { //nolint: funlen
 		conf.Private.Passphrase = readPassphrase()
 	}
 
-	agentWhisper(*decryptMode, *addPublicKey, conf, in, out)
+	pubKeyMeta := PublicKeyMeta{
+		Sender:    *addPublicKey,
+		Receivers: publicKeys,
+	}
+
+	agentWhisper(*decryptMode, pubKeyMeta, conf, in, out)
 }

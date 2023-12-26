@@ -55,7 +55,12 @@ func agentCheckPassphrase(prv whisper.PrivateKey) bool {
 	return whisper.IsPassphraseRight(WHISPER_AGENT_ADDR, prv)
 }
 
-func agentWhisper(decrypt bool, addPubKey string, conf whisper.Config, inFile, outFile string) {
+type PublicKeyMeta struct {
+	Sender    string
+	Receivers publicKeysFlag
+}
+
+func agentWhisper(decrypt bool, pubKeyMeta PublicKeyMeta, conf whisper.Config, inFile, outFile string) {
 	in := getInput(inFile)
 	defer func() { _ = in.Close() }()
 
@@ -65,12 +70,14 @@ func agentWhisper(decrypt bool, addPubKey string, conf whisper.Config, inFile, o
 	req := whisper.AgentReq{Decrypt: decrypt, Config: conf}
 
 	if decrypt {
-		pub := extractPublicKey(in)
+		pub := extractSender(in)
 		if len(req.Config.Public) == 0 {
 			req.Config.Public = append(req.Config.Public, pub)
 		}
+		extractReceivers(in)
 	} else {
-		req.PublicKey = prefixPublicKey(addPubKey, out)
+		req.PublicKey = prefixSender(pubKeyMeta.Sender, out)
+		prefixReceivers(pubKeyMeta.Receivers, out)
 	}
 
 	defer func() {
@@ -86,26 +93,26 @@ func agentWhisper(decrypt bool, addPubKey string, conf whisper.Config, inFile, o
 // If there's no public key, the output will be prefixed with "_".
 // If the public key is remote, the output will be prefixed with "@", the prefix will end with space.
 // If the public key is local, the output will be prefixed with ".", the prefix will end with space.
-func prefixPublicKey(publicKey string, out io.Writer) secure.KeyWithFilter {
-	if publicKey == "." {
-		publicKey = pubKeyName(DEFAULT_KEY_NAME)
+func prefixSender(sender string, out io.Writer) secure.KeyWithFilter {
+	if sender == "." {
+		sender = pubKeyName(DEFAULT_KEY_NAME)
 	}
 
-	if publicKey == "" {
-		_, err := out.Write([]byte("_"))
+	if sender == "" {
+		_, err := out.Write([]byte("_ "))
 		if err != nil {
 			panic(err)
 		}
 		return secure.KeyWithFilter{}
 	}
 
-	key := getPublicKey(publicKey)
+	key := getPublicKey(sender)
 
-	_, remote := extractRemotePublicKey(publicKey)
+	_, remote := extractRemotePublicKey(sender)
 
 	var err error
 	if remote {
-		_, err = out.Write([]byte(publicKey))
+		_, err = out.Write([]byte(sender))
 	} else {
 		_, err = out.Write([]byte("." + base64.StdEncoding.EncodeToString(key.Key) + ":" + key.Filter))
 	}
@@ -121,7 +128,25 @@ func prefixPublicKey(publicKey string, out io.Writer) secure.KeyWithFilter {
 	return key
 }
 
-func extractPublicKey(in io.Reader) secure.KeyWithFilter {
+func prefixReceivers(receivers publicKeysFlag, out io.Writer) {
+	for _, receiver := range receivers {
+		if receiver[0] != '@' {
+			continue
+		}
+
+		_, err := out.Write([]byte(receiver + " "))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	_, err := out.Write([]byte(","))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func extractSender(in io.Reader) secure.KeyWithFilter {
 	buf := make([]byte, 1)
 	_, err := in.Read(buf)
 	if err != nil {
@@ -166,6 +191,21 @@ func extractPublicKey(in io.Reader) secure.KeyWithFilter {
 	default:
 		return secure.KeyWithFilter{
 			Key: getKey(pubKeyName(DEFAULT_KEY_NAME)),
+		}
+	}
+}
+
+func extractReceivers(in io.Reader) {
+	buf := make([]byte, 1)
+
+	for {
+		_, err := in.Read(buf)
+		if err != nil {
+			panic(err)
+		}
+
+		if buf[0] == ',' {
+			break
 		}
 	}
 }
