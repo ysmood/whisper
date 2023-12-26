@@ -92,22 +92,35 @@ func getPublicKey(p string) secure.KeyWithFilter {
 
 	var key []byte
 	if remote {
-		p = toPublicKeyURL(p)
-		res, err := http.Get(p) //nolint:noctx
-		if err != nil {
-			panic(err)
-		}
-		defer func() { _ = res.Body.Close() }()
-
-		key, err = io.ReadAll(res.Body)
-		if err != nil {
-			panic(err)
-		}
+		key = getRemotePublicKey(p)
 	} else {
 		key = getKey(p)
 	}
 
 	return secure.KeyWithFilter{Key: key, Filter: filter}
+}
+
+func getRemotePublicKey(p string) []byte {
+	u := toPublicKeyURL(p)
+
+	if b, has := getCache(u); has {
+		return b
+	}
+
+	res, err := http.Get(u) //nolint:noctx
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	key, err := io.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	cache(u, key)
+
+	return key
 }
 
 func pubKeyName(prv string) string {
