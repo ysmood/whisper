@@ -12,8 +12,6 @@ import (
 	"golang.org/x/term"
 )
 
-const PUB_SUFFIX = ".pub"
-
 func getPublicKeys(paths []string) []secure.KeyWithFilter {
 	list := []secure.KeyWithFilter{}
 	for _, p := range paths {
@@ -113,7 +111,7 @@ func getPublicKey(p string) secure.KeyWithFilter {
 }
 
 func pubKeyName(prv string) string {
-	return prv + PUB_SUFFIX
+	return prv + ".pub"
 }
 
 type publicKeysFlag []string

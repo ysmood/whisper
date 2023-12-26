@@ -77,7 +77,36 @@ func TestAgentEncode(t *testing.T) {
 	g.Eq(str, "hello")
 }
 
-func TestAgentDecode(t *testing.T) { //nolint:funlen
+func TestAgentPassphrase(t *testing.T) {
+	g := got.T(t)
+
+	s := whisper.NewAgentServer()
+
+	l, err := net.Listen("tcp", ":0")
+	g.E(err)
+	addr := l.Addr().String()
+
+	go s.Listen(l)
+
+	prv, _ := whisper.PrivateKey{read("id_ecdsa"), ""}, read("id_ecdsa.pub")
+
+	// no passphrase
+	g.False(whisper.IsPassphraseRight(addr, whisper.PrivateKey{}))
+
+	// right passphrase
+	prv.Passphrase = "test"
+	g.True(whisper.IsPassphraseRight(addr, prv))
+
+	// cache passphrase
+	prv.Passphrase = ""
+	g.True(whisper.IsPassphraseRight(addr, prv))
+
+	// wrong passphrase
+	prv.Passphrase = "123"
+	g.False(whisper.IsPassphraseRight(addr, prv))
+}
+
+func TestAgentDecode(t *testing.T) {
 	g := got.T(t)
 
 	s := whisper.NewAgentServer()
@@ -99,46 +128,13 @@ func TestAgentDecode(t *testing.T) { //nolint:funlen
 
 	encoded := []byte("AQDCRtKH43W_QilOxCmrm5Ew_jv7UKDyyaNc8558QKgFydkAIRiurj1K2SvvH-LKhA")
 
-	{ // no passphrase
-		decoded := bytes.NewBuffer(nil)
+	conf.Private.Passphrase = "test"
+	decoded := bytes.NewBuffer(nil)
 
-		g.False(whisper.CallAgent(addr, whisper.AgentReq{
-			Decrypt: true,
-			Config:  conf,
-		}, bytes.NewReader(encoded), decoded))
-	}
+	whisper.CallAgent(addr, whisper.AgentReq{
+		Decrypt: true,
+		Config:  conf,
+	}, bytes.NewReader(encoded), decoded)
 
-	{
-		conf.Private.Passphrase = "test"
-		decoded := bytes.NewBuffer(nil)
-
-		g.True(whisper.CallAgent(addr, whisper.AgentReq{
-			Decrypt: true,
-			Config:  conf,
-		}, bytes.NewReader(encoded), decoded))
-
-		g.Eq(decoded.String(), "hello")
-	}
-
-	{ // cache passphrase
-		conf.Private.Passphrase = ""
-		decoded := bytes.NewBuffer(nil)
-
-		g.True(whisper.CallAgent(addr, whisper.AgentReq{
-			Decrypt: true,
-			Config:  conf,
-		}, bytes.NewReader(encoded), decoded))
-
-		g.Eq(decoded.String(), "hello")
-	}
-
-	{ // wrong passphrase
-		conf.Private.Passphrase = "123"
-		decoded := bytes.NewBuffer(nil)
-
-		g.False(whisper.CallAgent(addr, whisper.AgentReq{
-			Decrypt: true,
-			Config:  conf,
-		}, bytes.NewReader(encoded), decoded))
-	}
+	g.Eq(decoded.String(), "hello")
 }

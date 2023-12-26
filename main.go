@@ -57,8 +57,12 @@ func main() { //nolint: funlen
 
 	startAgent()
 
-	if !*decryptMode && publicKeys == nil {
-		publicKeys = publicKeysFlag{pubKeyName(DEFAULT_KEY_NAME)}
+	if publicKeys == nil {
+		if *decryptMode {
+			DEFAULT_KEY_NAME = *privateKey
+		} else {
+			publicKeys = publicKeysFlag{pubKeyName(*privateKey)}
+		}
 	}
 
 	conf := whisper.Config{
@@ -74,14 +78,13 @@ func main() { //nolint: funlen
 	in := flags.Arg(0)
 	out := *outputFile
 
-	if !callAgent(*decryptMode, *addPublicKey, conf, in, out) {
+	if !agentCheckPassphrase(conf.Private) {
 		if in == "" {
 			panic("stdin is used for piping, can't read passphrase from it, please specify the input file path in cli arg")
 		}
 
 		conf.Private.Passphrase = readPassphrase()
-		if !callAgent(*decryptMode, *addPublicKey, conf, in, out) {
-			panic("wrong passphrase")
-		}
 	}
+
+	agentWhisper(*decryptMode, *addPublicKey, conf, in, out)
 }

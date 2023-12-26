@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -50,7 +51,11 @@ func startAgent() {
 	log.Println("background whisper agent started")
 }
 
-func callAgent(decrypt bool, publicKey string, conf whisper.Config, inFile, outFile string) bool {
+func agentCheckPassphrase(prv whisper.PrivateKey) bool {
+	return whisper.IsPassphraseRight(WHISPER_AGENT_ADDR, prv)
+}
+
+func agentWhisper(decrypt bool, addPubKey string, conf whisper.Config, inFile, outFile string) {
 	in := getInput(inFile)
 	defer func() { _ = in.Close() }()
 
@@ -65,10 +70,17 @@ func callAgent(decrypt bool, publicKey string, conf whisper.Config, inFile, outF
 			req.Config.Public = append(req.Config.Public, pub)
 		}
 	} else {
-		req.PublicKey = prefixPublicKey(publicKey, out)
+		req.PublicKey = prefixPublicKey(addPubKey, out)
 	}
 
-	return whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Fprintln(out)
+			fmt.Fprintln(out, err)
+		}
+	}()
+
+	whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
 }
 
 // If there's no public key, the output will be prefixed with "_".
@@ -76,7 +88,7 @@ func callAgent(decrypt bool, publicKey string, conf whisper.Config, inFile, outF
 // If the public key is local, the output will be prefixed with ".", the prefix will end with space.
 func prefixPublicKey(publicKey string, out io.Writer) secure.KeyWithFilter {
 	if publicKey == "." {
-		publicKey = DEFAULT_KEY_NAME + PUB_SUFFIX
+		publicKey = pubKeyName(DEFAULT_KEY_NAME)
 	}
 
 	if publicKey == "" {
@@ -153,7 +165,7 @@ func extractPublicKey(in io.Reader) secure.KeyWithFilter {
 		}
 	default:
 		return secure.KeyWithFilter{
-			Key: getKey(DEFAULT_KEY_NAME + PUB_SUFFIX),
+			Key: getKey(pubKeyName(DEFAULT_KEY_NAME)),
 		}
 	}
 }
