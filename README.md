@@ -76,3 +76,29 @@ whisper -a=. -p='@jack' -p='@tim' plain > encrypted
 # Decrypt on Jack's machine, the machine has Jack's private key.
 whisper -d encrypted
 ```
+
+The wire format output of the:
+
+```bash
+whisper -a='@ysmood' -p='@jack' -p='@tim' plain > encrypted
+```
+
+looks like this:
+
+```txt
+@ysmood @jack @tim ,AQIivDFghr38p3YaVyGB3M3-vsxraWWL
+```
+
+The output has 2 parts: header and body, they are separated by a comma `,`.
+
+In the header, each public key id is separated by space. The first one is the sender's, the rest are the recipients'.
+They will be plaintext, so you can quickly know who can decrypt the data and verify if the data is malicious by the sender's public key.
+
+The body is usually a base64 encoded string, it's the encrypted data, even without the header,
+as long as you have the public key of the sender, and the private key of the recipient, you can decrypt the data, for example:
+
+```bash
+whisper -d -k='~/.ssh/id_ecdsa_jack' -p='@ysmood' encrypted
+```
+
+The `id_ecdsa_jack` is the private key of Jack, the `@ysmood` is the public key of the sender.
