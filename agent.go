@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -79,13 +78,6 @@ func agentWhisper(decrypt bool, pubKeyMeta PublicKeyMeta, conf whisper.Config, i
 		req.PublicKey = prefixSender(pubKeyMeta.Sender, out)
 		prefixReceivers(pubKeyMeta.Receivers, out)
 	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Fprintln(out)
-			fmt.Fprintln(out, err)
-		}
-	}()
 
 	whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
 }

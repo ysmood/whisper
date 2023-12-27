@@ -35,6 +35,7 @@ func main() { //nolint: funlen
 
 	compressLevel := flags.Int("c", gzip.DefaultCompression, "gzip compression level")
 
+	inputFile := flags.String("i", "", "input encryption/decryption from the specified file")
 	outputFile := flags.String("o", "", "output encryption/decryption to the specified file")
 
 	flags.Usage = func() {
@@ -82,7 +83,11 @@ func main() { //nolint: funlen
 		Public: getPublicKeys(publicKeys),
 	}
 
-	in := flags.Arg(0)
+	in := *inputFile
+	if in == "" {
+		in = flags.Arg(0)
+	}
+
 	out := *outputFile
 
 	if !agentCheckPassphrase(conf.Private) {
