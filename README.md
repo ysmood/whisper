@@ -3,7 +3,8 @@
 # Overview
 
 A simple lib to encrypt, decrypt data with [Public-key cryptography](https://en.wikipedia.org/wiki/Public-key_cryptography).
-Now only [RSA](<https://en.wikipedia.org/wiki/RSA_(cryptosystem)>) and [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm) are supported.
+Now only [ED25519](https://en.wikipedia.org/wiki/EdDSA#Ed25519), [ECDSA](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm),
+and [RSA](<https://en.wikipedia.org/wiki/RSA_(cryptosystem)>) are supported.
 
 ## CLI tool
 
@@ -25,7 +26,7 @@ Here is a simple example to encrypt and decrypt for yourself, the encrypted data
 
 ```bash
 # generate a key pair
-ssh-keygen -t ecdsa
+ssh-keygen -t ed25519
 
 echo 'hello world!' > plain
 
@@ -65,7 +66,7 @@ whisper -p='@ysmood' plain > encrypted
 
 # A authorized_keys file may contain several keys, you can add a suffix to select a specific key.
 # 'tbml' is the substring of the key content we want to use.
-whisper -p='@ysmood:ecdsa' plain > encrypted
+whisper -p='@ysmood:ed25519' plain > encrypted
 
 # Encrypt content for multiple recipients, such as Jack and Tim.
 whisper -a='@ysmood' -p='@jack' -p='@tim' plain > encrypted
@@ -98,7 +99,7 @@ The body is usually a base64 encoded string, it's the encrypted data, even witho
 as long as you have the public key of the sender, and the private key of the recipient, you can decrypt the data, for example:
 
 ```bash
-whisper -d -k='~/.ssh/id_ecdsa_jack' -p='@ysmood' encrypted
+whisper -d -k='~/.ssh/id_ed25519_jack' -p='@ysmood' encrypted
 ```
 
-The `id_ecdsa_jack` is the private key of Jack, the `@ysmood` is the public key of the sender.
+The `id_ed25519_jack` is the private key of Jack, the `@ysmood` is the public key of the sender.

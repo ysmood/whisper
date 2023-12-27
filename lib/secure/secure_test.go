@@ -79,6 +79,35 @@ func TestSSHKey(t *testing.T) {
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
+func TestSSHKey_ed25519(t *testing.T) {
+	g := got.T(t)
+
+	key01, err := secure.New(
+		g.Read("test_data/id_ed25519_01").Bytes(),
+		"test",
+		getPubKey(g, "test_data/id_ed25519_02.pub"),
+	)
+	g.E(err)
+
+	key02, err := secure.New(
+		g.Read("test_data/id_ed25519_02").Bytes(),
+		"",
+		getPubKey(g, "test_data/id_ed25519_01.pub"),
+	)
+	g.E(err)
+
+	buf := bytes.NewBuffer(nil)
+	enc, err := key01.Cipher().Encoder(buf)
+	g.E(err)
+	g.E(enc.Write([]byte("ok")))
+	g.E(enc.Close())
+
+	dec, err := key02.Cipher().Decoder(buf)
+	g.E(err)
+
+	g.Eq(g.Read(dec).String(), "ok")
+}
+
 func TestSSHKey_rsa(t *testing.T) {
 	g := got.T(t)
 
@@ -173,4 +202,33 @@ func TestBelongs(t *testing.T) {
 		g.Read("test_data/id_rsa01").Bytes(),
 		"test",
 	))
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_ed25519_01.pub"),
+		g.Read("test_data/id_ed25519_01").Bytes(),
+		"test",
+	))
+}
+
+func TestECDH_ed25519(t *testing.T) {
+	g := got.T(t)
+
+	prv01, err := secure.SSHPrvKey(g.Read("test_data/id_ed25519_01").Bytes(), "test")
+	g.E(err)
+	pub01, err := secure.SSHPubKey(g.Read("test_data/id_ed25519_01.pub").Bytes())
+	g.E(err)
+
+	prv02, err := secure.SSHPrvKey(g.Read("test_data/id_ed25519_02").Bytes(), "")
+	g.E(err)
+	pub02, err := secure.SSHPubKey(g.Read("test_data/id_ed25519_02.pub").Bytes())
+	g.E(err)
+
+	s1, err := secure.SharedSecret(prv01, pub02)
+	g.E(err)
+
+	s2, err := secure.SharedSecret(prv02, pub01)
+	g.E(err)
+
+	g.Len(s1, 32)
+	g.Eq(s1, s2)
 }

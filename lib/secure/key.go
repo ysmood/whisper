@@ -5,12 +5,16 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/sha512"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"strings"
 
+	"filippo.io/edwards25519"
+	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -30,6 +34,8 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 		case *ecdsa.PublicKey:
 			return eKey, nil
 		case *rsa.PublicKey:
+			return eKey, nil
+		case ed25519.PublicKey:
 			return eKey, nil
 		default:
 			continue
@@ -57,6 +63,8 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 		return eKey, nil
 	case *rsa.PrivateKey:
 		return eKey, nil
+	case *ed25519.PrivateKey:
+		return *eKey, nil
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
@@ -73,6 +81,8 @@ func PrivateKeyTypePrefix(key crypto.PrivateKey) string {
 		return "ecdsa-sha2-nistp256"
 	case *rsa.PrivateKey:
 		return "ssh-rsa"
+	case ed25519.PrivateKey:
+		return "ssh-ed25519"
 	}
 
 	return "unknown"
@@ -100,6 +110,8 @@ func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
 		return prvKey.(*ecdsa.PrivateKey).PublicKey.Equal(key)
 	case *rsa.PublicKey:
 		return prvKey.(*rsa.PrivateKey).PublicKey.Equal(key)
+	case ed25519.PublicKey:
+		return bytes.Equal(prvKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), key)
 	}
 
 	return false
@@ -132,4 +144,53 @@ func splitIntoLines(text []byte) []string {
 	}
 
 	return lines
+}
+
+func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		private, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		public, err := pub.(*ecdsa.PublicKey).ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		return private.ECDH(public)
+	case ed25519.PrivateKey:
+		xPriv := ed25519PrivateKeyToCurve25519(key)
+		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
+		if err != nil {
+			return nil, err
+		}
+
+		return curve25519.X25519(xPriv, xPub)
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+	}
+}
+
+// ed25519PrivateKeyToCurve25519 converts a ed25519 private key in X25519 equivalent
+// source: https://github.com/FiloSottile/age/blob/980763a16e30ea5c285c271344d2202fcb18c33b/agessh/agessh.go#L287
+func ed25519PrivateKeyToCurve25519(pk ed25519.PrivateKey) []byte {
+	h := sha512.New()
+	h.Write(pk.Seed())
+	out := h.Sum(nil)
+	return out[:curve25519.ScalarSize]
+}
+
+// ed25519PublicKeyToCurve25519 converts a ed25519 public key in X25519 equivalent
+// source: https://github.com/FiloSottile/age/blob/main/agessh/agessh.go#L190
+func ed25519PublicKeyToCurve25519(pk ed25519.PublicKey) ([]byte, error) {
+	// See https://blog.filippo.io/using-ed25519-keys-for-encryption and
+	// https://pkg.go.dev/filippo.io/edwards25519#Point.BytesMontgomery.
+	p, err := new(edwards25519.Point).SetBytes(pk)
+	if err != nil {
+		return nil, err
+	}
+	return p.BytesMontgomery(), nil
 }

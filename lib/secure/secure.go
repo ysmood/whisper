@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/aes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -163,6 +164,8 @@ func (k *Key) SigDigest(digest []byte) ([]byte, error) {
 		return key.Sign(rand.Reader, digest, nil)
 	case *rsa.PrivateKey:
 		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest)
+	case ed25519.PrivateKey:
+		return ed25519.Sign(key, digest), nil
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, k.prv)
 	}
@@ -174,6 +177,8 @@ func (k *Key) VerifyDigest(digest, sign []byte) bool {
 		return ecdsa.VerifyASN1(key, digest, sign)
 	case *rsa.PublicKey:
 		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sign) == nil
+	case ed25519.PublicKey:
+		return ed25519.Verify(key, digest, sign)
 	default:
 		return false
 	}
@@ -375,26 +380,6 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			return piper.Close(r)
 		},
 	}, nil
-}
-
-func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
-	switch key := prv.(type) {
-	case *ecdsa.PrivateKey:
-		private, err := key.ECDH()
-		if err != nil {
-			return nil, err
-		}
-
-		public, err := pub.(*ecdsa.PublicKey).ECDH()
-		if err != nil {
-			return nil, err
-		}
-
-		return private.ECDH(public)
-
-	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
-	}
 }
 
 func rsaEncrypt(pub *rsa.PublicKey, data []byte) ([]byte, error) {

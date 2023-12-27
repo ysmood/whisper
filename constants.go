@@ -13,7 +13,7 @@ var DEFAULT_KEY_NAME = func() string {
 		panic(err)
 	}
 
-	return filepath.Join(p, ".ssh", "id_ecdsa")
+	return filepath.Join(p, ".ssh", "id_ed25519")
 }()
 
 var WHISPER_AGENT_ADDR = goe.Get("WHISPER_AGENT_ADDR", "127.0.0.1:57217")
