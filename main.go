@@ -14,6 +14,8 @@ func main() { //nolint: funlen
 
 	version := flags.Bool("v", false, "print version")
 
+	clearCache := flags.Bool("clear-cache", false, "clear the cache")
+
 	decryptMode := flags.Bool("d", false, "decrypt mode")
 
 	agent := flags.Bool(AGENT_FLAG, false,
@@ -47,6 +49,11 @@ func main() { //nolint: funlen
 
 	if *version {
 		fmt.Println("version:", whisper.Version())
+		return
+	}
+
+	if *clearCache {
+		cacheClear()
 		return
 	}
 

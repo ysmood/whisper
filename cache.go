@@ -6,6 +6,14 @@ import (
 	"path/filepath"
 )
 
+func cacheClear() {
+	// Remove the cache directory
+	err := os.RemoveAll(cacheDir())
+	if err != nil {
+		panic(err)
+	}
+}
+
 func cacheDir() string {
 	return filepath.Join(os.TempDir(), "whisper")
 }
