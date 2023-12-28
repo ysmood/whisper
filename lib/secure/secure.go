@@ -2,20 +2,20 @@
 // It allows different types of keys to securely exchange secrets: rsa, ecdsa, ed25519, etc.
 //
 // Suppose if we have a key pair X, X0 represents its private key, X1 represents its public key.
-// We have a pool of key pairs W, they accessible by everyone, they are pregenerated key pairs
+// We have a pool of key pairs S, they accessible by everyone, they are pregenerated key pairs
 // with the combinations of commonly use key types and sizes, such as 1024bit rsa 1024, 2048bit rsa, 256bit ecdsa, etc.
 // Now we have X and Y, they are different key type, such as X is rsa, Y is ecdsa,
 // we want to encrypt data with X and decrypt it with Y. X has access to Y1.
 //
 // Encryption steps:
 //
-//	Find M from W that has the same type of Y.
+//	Find M from S that has the same type of Y.
 //	Use Y1 and M0 to generate the shared 256bit AES secret key K.
 //	Encrypt the data with K.
 //
 // Decryption steps:
 //
-//	Find M from W that has the same type of Y.
+//	Find M from S that has the same type of Y.
 //	Use Y0 and M1 to generate the shared 256bit AES secret key K.
 //	Decrypt the data with K.
 package secure
