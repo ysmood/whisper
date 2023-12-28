@@ -42,3 +42,16 @@ func (d *Debug) Write(p []byte) (n int, err error) {
 	log.Printf("[%s] write %d %v %x", d.prefix, n, err, p[:n])
 	return
 }
+
+type WrapReadCloser struct {
+	Reader io.Reader
+	Closer io.Closer
+}
+
+func (w *WrapReadCloser) Read(p []byte) (n int, err error) {
+	return w.Reader.Read(p)
+}
+
+func (w *WrapReadCloser) Close() error {
+	return w.Closer.Close()
+}

@@ -10,7 +10,7 @@ func cacheClear() {
 	// Remove the cache directory
 	err := os.RemoveAll(cacheDir())
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 }
 
@@ -26,13 +26,13 @@ func cache(key string, data []byte) {
 	// Ensure the cache directory exists
 	err := os.MkdirAll(cacheDir(), 0o755)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	// Write the data to the cache file
 	err = os.WriteFile(cacheFilePath(key), data, 0o644)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 }
 
@@ -44,7 +44,7 @@ func getCache(key string) ([]byte, bool) {
 			// If the file doesn't exist, return nil and false
 			return nil, false
 		}
-		panic(err)
+		exit(err)
 	}
 
 	return data, true

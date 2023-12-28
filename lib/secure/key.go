@@ -1,22 +1,49 @@
 package secure
 
 import (
-	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/md5"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"strings"
 
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/ssh"
 )
+
+const (
+	KEY_TYPE_RSA     = "rsa"
+	KEY_TYPE_ECDSA   = "ecdsa"
+	KEY_TYPE_ED25519 = "ed25519"
+)
+
+type KeyInfo struct {
+	Type    string
+	BitSize []int
+}
+
+var SupportedKeyTypes = []KeyInfo{
+	{
+		Type:    KEY_TYPE_RSA,
+		BitSize: []int{1024, 2048, 3072},
+	},
+	{
+		Type:    KEY_TYPE_ECDSA,
+		BitSize: []int{256, 384, 521},
+	},
+	{
+		Type:    KEY_TYPE_ED25519,
+		BitSize: []int{256},
+	},
+}
 
 var ErrNotSupportedKey = errors.New("not an supported key")
 
@@ -33,9 +60,9 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 		switch eKey := key.(ssh.CryptoPublicKey).CryptoPublicKey().(type) {
 		case *ecdsa.PublicKey:
 			return eKey, nil
-		case *rsa.PublicKey:
-			return eKey, nil
 		case ed25519.PublicKey:
+			return eKey, nil
+		case *rsa.PublicKey:
 			return eKey, nil
 		default:
 			continue
@@ -45,8 +72,18 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 	return nil, fmt.Errorf("%w, can't find public key", ErrNotSupportedKey)
 }
 
+var privateKeyCache = map[string]crypto.PrivateKey{}
+
 // SSHPrvKey returns a private key from a ssh private key.
 func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
+	d := md5.New()
+	_, _ = d.Write(keyData)
+	id := string(d.Sum([]byte(passphrase)))
+
+	if key, ok := privateKeyCache[id]; ok {
+		return key, nil
+	}
+
 	var key interface{}
 	var err error
 	if passphrase == "" {
@@ -58,16 +95,46 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 		return nil, err
 	}
 
+	var prv crypto.PrivateKey
+
 	switch eKey := key.(type) {
 	case *ecdsa.PrivateKey:
-		return eKey, nil
-	case *rsa.PrivateKey:
-		return eKey, nil
+		prv = eKey
 	case *ed25519.PrivateKey:
-		return *eKey, nil
+		prv = *eKey
+	case *rsa.PrivateKey:
+		prv = eKey
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
+
+	privateKeyCache[id] = prv
+
+	return prv, nil
+}
+
+// Belongs checks if pub key belongs to prv key.
+func Belongs(pub, prv []byte, passphrase string) (bool, error) {
+	prvKey, err := SSHPrvKey(prv, passphrase)
+	if err != nil {
+		return false, err
+	}
+
+	pubKey, err := SSHPubKey(pub)
+	if err != nil {
+		return false, err
+	}
+
+	switch key := pubKey.(type) {
+	case *ecdsa.PublicKey:
+		return prvKey.(*ecdsa.PrivateKey).PublicKey.Equal(key), nil
+	case ed25519.PublicKey:
+		return bytes.Equal(prvKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), key), nil
+	case *rsa.PublicKey:
+		return prvKey.(*rsa.PrivateKey).PublicKey.Equal(key), nil
+	}
+
+	return false, nil
 }
 
 func IsAuthErr(err error) bool {
@@ -75,78 +142,59 @@ func IsAuthErr(err error) bool {
 	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
 }
 
-func PrivateKeyTypePrefix(key crypto.PrivateKey) string {
-	switch key.(type) {
-	case *ecdsa.PrivateKey:
-		return "ecdsa-sha2-nistp256"
-	case *rsa.PrivateKey:
-		return "ssh-rsa"
-	case ed25519.PrivateKey:
-		return "ssh-ed25519"
-	}
-
-	return "unknown"
-}
-
-// Belongs checks if pub key belongs to prv key.
-func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
-	prvKey, err := SSHPrvKey(prv, passphrase)
+func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
+	private, err := FindPrvSharedKey(pub)
 	if err != nil {
-		return false
+		return nil, err
 	}
 
-	key, err := pub.GetKey(PrivateKeyTypePrefix(prvKey))
-	if err != nil {
-		return false
-	}
-
-	pubKey, err := SSHPubKey(key)
-	if err != nil {
-		return false
-	}
-
-	switch key := pubKey.(type) {
+	switch key := pub.(type) {
 	case *ecdsa.PublicKey:
-		return prvKey.(*ecdsa.PrivateKey).PublicKey.Equal(key)
-	case *rsa.PublicKey:
-		return prvKey.(*rsa.PrivateKey).PublicKey.Equal(key)
-	case ed25519.PublicKey:
-		return bytes.Equal(prvKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), key)
-	}
-
-	return false
-}
-
-type KeyWithFilter struct {
-	Key    []byte
-	Filter string
-}
-
-var ErrPubKeyNotFound = errors.New("public key not found")
-
-func (key KeyWithFilter) GetKey(typePrefix string) ([]byte, error) {
-	for _, l := range splitIntoLines(key.Key) {
-		if strings.HasPrefix(l, typePrefix) && strings.Contains(l, key.Filter) {
-			return []byte(l), nil
+		prv, err := private.(*ecdsa.PrivateKey).ECDH()
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	return nil, fmt.Errorf("%w with filter: %s", ErrPubKeyNotFound, key.Filter)
+		public, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := prv.ECDH(public)
+		if err != nil {
+			return nil, err
+		}
+
+		return EncryptAES(secret, aesKey, 0)
+
+	case ed25519.PublicKey:
+		xPrv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
+		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := curve25519.X25519(xPrv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		return EncryptAES(secret, aesKey, 0)
+
+	case *rsa.PublicKey:
+		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, aesKey, nil)
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
+	}
 }
 
-func splitIntoLines(text []byte) []string {
-	scanner := bufio.NewScanner(bytes.NewReader(text))
-	scanner.Split(bufio.ScanLines)
-
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) { //nolint: cyclop
+	public, err := FindPubSharedKey(prv)
+	if err != nil {
+		return nil, err
 	}
 
-	return lines
-}
-
-func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
 	switch key := prv.(type) {
 	case *ecdsa.PrivateKey:
 		private, err := key.ECDH()
@@ -154,23 +202,63 @@ func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
 			return nil, err
 		}
 
-		public, err := pub.(*ecdsa.PublicKey).ECDH()
+		pub, err := public.(*ecdsa.PublicKey).ECDH()
 		if err != nil {
 			return nil, err
 		}
 
-		return private.ECDH(public)
+		secret, err := private.ECDH(pub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(secret, encryptedAESKey, 0)
+
 	case ed25519.PrivateKey:
-		xPriv := ed25519PrivateKeyToCurve25519(key)
-		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
+		xPrv := ed25519PrivateKeyToCurve25519(key)
+		xPub, err := ed25519PublicKeyToCurve25519(public.(ed25519.PublicKey))
 		if err != nil {
 			return nil, err
 		}
 
-		return curve25519.X25519(xPriv, xPub)
+		secret, err := curve25519.X25519(xPrv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(secret, encryptedAESKey, 0)
+
+	case *rsa.PrivateKey:
+		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)
 
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+	}
+}
+
+func PublicKeySize(pub crypto.PublicKey) int {
+	switch key := pub.(type) {
+	case *ecdsa.PublicKey:
+		return key.Params().BitSize
+	case ed25519.PublicKey:
+		return len(key) * 8
+	case *rsa.PublicKey:
+		return key.N.BitLen()
+	default:
+		return 0
+	}
+}
+
+func PrivateKeySize(prv crypto.PrivateKey) int {
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		return key.Params().BitSize
+	case ed25519.PrivateKey:
+		return len(key.Seed()) * 8
+	case *rsa.PrivateKey:
+		return key.N.BitLen()
+	default:
+		return 0
 	}
 }
 

@@ -15,12 +15,11 @@ import (
 )
 
 type AgentReq struct {
-	Version         string
+	Version         byte
 	Decrypt         bool
 	CheckPassphrase bool
 
-	PublicKey secure.KeyWithFilter
-	Config    Config
+	Config Config
 }
 
 type AgentRes struct {
@@ -37,7 +36,7 @@ var _ = func() int {
 }()
 
 // AgentServer is a tcp server that can be used to avoid inputting the passphrase every time.
-// It will do the encryption and decryption for you, not the cli client.
+// It will do the encryption and decryption for you, not the agent client.
 // There's no way to get the passphrase from the tcp client, the only way to get the passphrase is
 // to have root permission and dump the os memory.
 // If the server restarts you have to send it to server again.
@@ -109,25 +108,25 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error {
 		return err
 	}
 
-	if req.Version != "" {
+	if req.Version != 0 {
 		return a.handleCheckVersion(s, req.Version)
 	}
 
 	a.cacheLoadPrivate(&req.Config)
 
 	if req.CheckPassphrase {
-		return a.handleCheckPassphrase(s, req.Config.Private)
+		return a.handleCheckPassphrase(s, *req.Config.Private)
 	}
 
 	return a.handleWhisper(s, req)
 }
 
-func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version string) error {
-	if version == Version() {
+func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version byte) error {
+	if version == Version {
 		return a.res(s, AgentRes{Running: true})
 	}
 
-	a.Logger.Warn("version mismatch, close server", "server", Version(), "client", version)
+	a.Logger.Warn("version mismatch, close server", "server", Version, "client", version)
 	return a.listener.Close()
 }
 
@@ -147,19 +146,13 @@ func (a *AgentServer) handleCheckPassphrase(s io.ReadWriteCloser, prv PrivateKey
 }
 
 func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
-	wsp, err := New(req.Config)
-	if err != nil {
-		return err
+	wsp := New(req.Config)
+
+	if req.Config.Private != nil {
+		a.cachePrivate(*req.Config.Private)
 	}
 
-	a.cachePrivate(req.Config.Private)
-
-	if req.PublicKey.Key != nil &&
-		!secure.Belongs(req.PublicKey, req.Config.Private.Data, req.Config.Private.Passphrase) {
-		return a.res(s, AgentRes{WrongPublicKey: true})
-	}
-
-	err = a.res(s, AgentRes{})
+	err := a.res(s, AgentRes{})
 	if err != nil {
 		return err
 	}
@@ -192,7 +185,7 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 }
 
 func (a *AgentServer) cacheLoadPrivate(conf *Config) {
-	if conf.Private.Passphrase != "" {
+	if conf.Private == nil || conf.Private.Passphrase != "" {
 		return
 	}
 
@@ -215,67 +208,6 @@ func (a *AgentServer) res(s io.Writer, res AgentRes) error {
 
 	_, err = s.Write(byframe.Encode(b))
 	return err
-}
-
-// Return true if the passphrase is correct.
-func CallAgent(addr string, req AgentReq, in io.Reader, out io.Writer) {
-	res, stream, err := agentReq(addr, req)
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() { _ = stream.Close() }()
-
-	if res.WrongPublicKey {
-		panic("the public key from option -a doesn't belong to the private key")
-	}
-
-	go func() {
-		_, err := io.Copy(stream, in)
-		if err != nil {
-			panic(err)
-		}
-
-		err = stream.End(nil)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
-	_, err = io.Copy(out, stream)
-	if err != nil {
-		panic("your key might be wrong or data is corrupted: " + err.Error())
-	}
-}
-
-func IsPassphraseRight(addr string, prv PrivateKey) bool {
-	res, stream, err := agentReq(addr, AgentReq{CheckPassphrase: true, Config: Config{Private: prv}})
-	if err != nil {
-		if stream == nil {
-			return false
-		}
-
-		panic(err)
-	}
-
-	_ = stream.Close()
-
-	return res.PassphraseRight
-}
-
-func IsAgentRunning(addr, version string) bool {
-	res, stream, err := agentReq(addr, AgentReq{Version: version})
-	if err != nil {
-		if stream == nil {
-			return false
-		}
-
-		panic(err)
-	}
-
-	_ = stream.Close()
-
-	return res.Running
 }
 
 func agentReq(addr string, req AgentReq) (*AgentRes, *piper.Ender, error) {

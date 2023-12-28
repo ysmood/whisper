@@ -17,5 +17,6 @@ require (
 	github.com/ysmood/goe v0.2.0
 	github.com/ysmood/gop v0.2.0 // indirect
 	golang.org/x/crypto v0.16.0
+	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.15.0 // indirect
 )

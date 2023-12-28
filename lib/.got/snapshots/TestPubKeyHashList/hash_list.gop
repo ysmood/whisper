@@ -1,0 +1,4 @@
+[][]uint8{
+    gop.Base64("E8H4oQ=="),
+    gop.Base64("myHwEA=="),
+}

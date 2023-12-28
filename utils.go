@@ -7,23 +7,20 @@ import (
 	"os"
 	"strings"
 
+	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
-	"github.com/ysmood/whisper/lib/secure"
 	"golang.org/x/term"
 )
 
-func getPublicKeys(paths []string) []secure.KeyWithFilter {
-	list := []secure.KeyWithFilter{}
-	for _, p := range paths {
-		list = append(list, getPublicKey(p))
-	}
-	return list
+func exit(err error) {
+	fmt.Fprintln(os.Stderr, "Error:", err.Error())
+	os.Exit(1)
 }
 
 func getKey(keyFile string) []byte {
 	b, err := os.ReadFile(keyFile)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 	return b
 }
@@ -32,21 +29,26 @@ func readPassphrase() string {
 	fmt.Fprint(os.Stderr, "Enter passphrase for private key: ")
 	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 	fmt.Fprintln(os.Stderr)
 	return string(passphrase)
 }
 
-func getInput(input string) io.ReadCloser {
-	if input == "" {
+func getInput(path, defaultPath string) io.ReadCloser {
+	if path == "" {
+		path = defaultPath
+	}
+
+	if path == "" {
 		return os.Stdin
 	}
 
-	f, err := os.Open(input)
+	f, err := os.Open(path)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
+
 	return f
 }
 
@@ -57,7 +59,7 @@ func getOutput(file string) io.WriteCloser {
 
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 	return f
 }
@@ -70,11 +72,12 @@ func extractRemotePublicKey(p string) (string, bool) {
 	return p, false
 }
 
-func extractPublicKeyFilter(p string) (string, string) {
-	if ss := strings.Split(p, ":"); len(ss) == 2 {
-		return ss[0], ss[1]
+func extractPublicKeySelector(p string) (string, string) {
+	sel := whisper.PublicKeyFromMeta(strings.TrimPrefix(p, "https://")).Selector
+	if sel == "" {
+		return p, ""
 	}
-	return p, ""
+	return p[:len(p)-len(sel)-1], sel
 }
 
 func toPublicKeyURL(p string) string {
@@ -85,10 +88,9 @@ func toPublicKeyURL(p string) string {
 	return fmt.Sprintf("https://github.com/%s.keys", p)
 }
 
-func getPublicKey(p string) secure.KeyWithFilter {
-	p, filter := extractPublicKeyFilter(p)
-
+func getPublicKey(p string) whisper.PublicKey {
 	p, remote := extractRemotePublicKey(p)
+	p, sel := extractPublicKeySelector(p)
 
 	var key []byte
 	if remote {
@@ -97,7 +99,11 @@ func getPublicKey(p string) secure.KeyWithFilter {
 		key = getKey(p)
 	}
 
-	return secure.KeyWithFilter{Key: key, Filter: filter}
+	if len(key) == 0 {
+		exit(fmt.Errorf("%w: %s", whisper.ErrPubKeyNotFound, p))
+	}
+
+	return whisper.PublicKey{Data: key, ID: p, Selector: sel}
 }
 
 func getRemotePublicKey(p string) []byte {
@@ -109,13 +115,13 @@ func getRemotePublicKey(p string) []byte {
 
 	res, err := http.Get(u) //nolint:noctx
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	key, err := io.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		exit(err)
 	}
 
 	cache(u, key)
@@ -125,6 +131,10 @@ func getRemotePublicKey(p string) []byte {
 
 func pubKeyName(prv string) string {
 	return prv + ".pub"
+}
+
+func prvKeyName(pub string) string {
+	return strings.TrimSuffix(pub, ".pub")
 }
 
 type publicKeysFlag []string

@@ -12,6 +12,8 @@ func (e EndErrors) Error() string {
 	return string(e)
 }
 
+// Ender acts like a proxy for the a io.ReadWriteCloser.
+// It will append a end section to each packet in the stream, so we can stream extra info for each packet.
 type Ender struct {
 	w *WriteEnder
 	r *ReadEnder
