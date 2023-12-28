@@ -10,13 +10,13 @@
 // Encryption steps:
 //
 //	Find M from W that has the same type of Y.
-//	Use Y1 and M0 to generate the shared secret key K.
+//	Use Y1 and M0 to generate the shared 256bit AES secret key K.
 //	Encrypt the data with K.
 //
 // Decryption steps:
 //
 //	Find M from W that has the same type of Y.
-//	Use Y0 and M1 to generate the shared secret key K.
+//	Use Y0 and M1 to generate the shared 256bit AES secret key K.
 //	Decrypt the data with K.
 package secure
 
