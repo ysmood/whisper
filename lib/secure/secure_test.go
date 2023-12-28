@@ -188,28 +188,6 @@ func TestWrongPassphrase(t *testing.T) {
 	g.Eq(err.Error(), e.Error())
 }
 
-func TestBelongs(t *testing.T) {
-	g := got.T(t)
-
-	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_ecdsa.pub"),
-		g.Read("test_data/id_ecdsa").Bytes(),
-		"test",
-	))
-
-	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_rsa01.pub"),
-		g.Read("test_data/id_rsa01").Bytes(),
-		"test",
-	))
-
-	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_ed25519_01.pub"),
-		g.Read("test_data/id_ed25519_01").Bytes(),
-		"test",
-	))
-}
-
 func TestECDH_ed25519(t *testing.T) {
 	g := got.T(t)
 

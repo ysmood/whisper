@@ -52,11 +52,9 @@ func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Ke
 		return nil, err
 	}
 
-	typePrefix := PrivateKeyTypePrefix(prv)
-
 	pub := []crypto.PublicKey{}
 	for _, publicKey := range publicKeys {
-		b, err := publicKey.GetKey(typePrefix)
+		b, err := publicKey.GetKey()
 		if err != nil {
 			return nil, err
 		}

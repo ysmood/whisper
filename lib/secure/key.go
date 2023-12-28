@@ -95,48 +95,6 @@ func IsAuthErr(err error) bool {
 	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
 }
 
-func PrivateKeyTypePrefix(key crypto.PrivateKey) string {
-	switch key.(type) {
-	case *ecdsa.PrivateKey:
-		return "ecdsa-sha2-nistp256"
-	case *rsa.PrivateKey:
-		return "ssh-rsa"
-	case ed25519.PrivateKey:
-		return "ssh-ed25519"
-	}
-
-	return "unknown"
-}
-
-// Belongs checks if pub key belongs to prv key.
-func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
-	prvKey, err := SSHPrvKey(prv, passphrase)
-	if err != nil {
-		return false
-	}
-
-	key, err := pub.GetKey(PrivateKeyTypePrefix(prvKey))
-	if err != nil {
-		return false
-	}
-
-	pubKey, err := SSHPubKey(key)
-	if err != nil {
-		return false
-	}
-
-	switch key := pubKey.(type) {
-	case *ecdsa.PublicKey:
-		return prvKey.(*ecdsa.PrivateKey).PublicKey.Equal(key)
-	case *rsa.PublicKey:
-		return prvKey.(*rsa.PrivateKey).PublicKey.Equal(key)
-	case ed25519.PublicKey:
-		return bytes.Equal(prvKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), key)
-	}
-
-	return false
-}
-
 type KeyWithFilter struct {
 	Key    []byte
 	Filter string
@@ -144,9 +102,9 @@ type KeyWithFilter struct {
 
 var ErrPubKeyNotFound = errors.New("public key not found")
 
-func (key KeyWithFilter) GetKey(typePrefix string) ([]byte, error) {
+func (key KeyWithFilter) GetKey() ([]byte, error) {
 	for _, l := range splitIntoLines(key.Key) {
-		if strings.HasPrefix(l, typePrefix) && strings.Contains(l, key.Filter) {
+		if strings.Contains(l, key.Filter) {
 			return []byte(l), nil
 		}
 	}
