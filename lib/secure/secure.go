@@ -1,5 +1,5 @@
 // Package secure makes encrypted data can only be decrypted by selected receivers.
-// It allows different types of keys to securely exchange secrets: rsa, ecdsa, ed25519, etc.
+// It allows different types of public keys to secretly exchange data.
 //
 // Suppose if we have a key pair X, X0 represents its private key, X1 represents its public key.
 // We have a pool of key pairs S, they accessible by everyone, they are pregenerated key pairs
