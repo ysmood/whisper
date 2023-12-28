@@ -18,6 +18,26 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type KeyInfo struct {
+	Type    string
+	BitSize []int
+}
+
+var SupportedKeyTypes = []KeyInfo{
+	{
+		Type:    "rsa",
+		BitSize: []int{1024, 2048, 3072},
+	},
+	{
+		Type:    "ecdsa",
+		BitSize: []int{256, 384, 521},
+	},
+	{
+		Type:    "ed25519",
+		BitSize: []int{256},
+	},
+}
+
 var ErrNotSupportedKey = errors.New("not an supported key")
 
 func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
