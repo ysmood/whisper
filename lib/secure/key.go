@@ -195,13 +195,13 @@ func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
 
 	switch prv.(type) {
 	case *ecdsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d.pub", KEY_TYPE_ECDSA, size)
+		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ECDSA, size)
 	case *rsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d.pub", KEY_TYPE_RSA, size)
+		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_RSA, size)
 	case ed25519.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d.pub", KEY_TYPE_ED25519, size)
+		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ED25519, size)
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+		return nil, fmt.Errorf("%w, got: %T", ErrPubKeyNotFound, prv)
 	}
 
 	b, err := sharedKeys.ReadFile(file)
@@ -212,20 +212,22 @@ func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
 	return SSHPubKey(b)
 }
 
+var ErrPrvKeyNotFound = errors.New("private key not found")
+
 func FindPrvSharedKey(pub crypto.PublicKey) (crypto.PrivateKey, error) {
 	size := PublicKeySize(pub)
 
 	var file string
 
 	switch pub.(type) {
-	case *ecdsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d", KEY_TYPE_ECDSA, size)
-	case *rsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d", KEY_TYPE_RSA, size)
-	case ed25519.PrivateKey:
-		file = fmt.Sprintf("shared-keys/%s-%d", KEY_TYPE_ED25519, size)
+	case *ecdsa.PublicKey:
+		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ECDSA, size)
+	case *rsa.PublicKey:
+		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_RSA, size)
+	case ed25519.PublicKey:
+		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ED25519, size)
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
+		return nil, fmt.Errorf("%w, got: %T", ErrPrvKeyNotFound, pub)
 	}
 
 	b, err := sharedKeys.ReadFile(file)
