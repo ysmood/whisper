@@ -235,10 +235,6 @@ func TestPublicKeySize(t *testing.T) {
 		key, err = secure.SSHPrvKey(g.Read(file).Bytes(), "")
 		g.E(err)
 
-		ms = regexp.MustCompile(`(\d+)$`).FindStringSubmatch(file)
-		size, err = strconv.ParseInt(ms[1], 10, 64)
-		g.E(err)
-
 		g.Desc(file).Eq(secure.PrivateKeySize(key), size)
 	}
 
