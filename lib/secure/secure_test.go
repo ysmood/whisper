@@ -215,27 +215,35 @@ func TestECDH_ed25519(t *testing.T) {
 	g.Eq(s1, s2)
 }
 
-func TestPublicKeySize(t *testing.T) {
+func TestKeyTypes(t *testing.T) {
 	g := got.T(t)
 
 	check := func(file string) {
 		g.Helper()
 
-		key, err := secure.SSHPubKey(g.Read(file).Bytes())
+		pub, err := secure.SSHPubKey(g.Read(file).Bytes())
 		g.E(err)
 
 		ms := regexp.MustCompile(`(\d+).pub`).FindStringSubmatch(file)
 		size, err := strconv.ParseInt(ms[1], 10, 64)
 		g.E(err)
 
-		g.Desc(file).Eq(secure.PublicKeySize(key), size)
+		g.Desc(file).Eq(secure.PublicKeySize(pub), size)
 
 		file = strings.TrimSuffix(file, ".pub")
 
-		key, err = secure.SSHPrvKey(g.Read(file).Bytes(), "")
+		prv, err := secure.SSHPrvKey(g.Read(file).Bytes(), "")
 		g.E(err)
 
-		g.Desc(file).Eq(secure.PrivateKeySize(key), size)
+		g.Desc(file).Eq(secure.PrivateKeySize(prv), size)
+
+		sharedPub, err := secure.FindPubSharedKey(prv)
+		g.E(err)
+		g.Eq(sharedPub, pub)
+
+		sharedPrv, err := secure.FindPrvSharedKey(pub)
+		g.E(err)
+		g.Eq(sharedPrv, prv)
 	}
 
 	ms, err := filepath.Glob("shared-keys/*.pub")
