@@ -152,6 +152,19 @@ func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
 	}
 }
 
+func PublicKeySize(pub crypto.PublicKey) int {
+	switch key := pub.(type) {
+	case *ecdsa.PublicKey:
+		return key.Params().BitSize
+	case *rsa.PublicKey:
+		return key.N.BitLen()
+	case ed25519.PublicKey:
+		return len(key) * 8
+	default:
+		return 0
+	}
+}
+
 // ed25519PrivateKeyToCurve25519 converts a ed25519 private key in X25519 equivalent
 // source: https://github.com/FiloSottile/age/blob/980763a16e30ea5c285c271344d2202fcb18c33b/agessh/agessh.go#L287
 func ed25519PrivateKeyToCurve25519(pk ed25519.PrivateKey) []byte {

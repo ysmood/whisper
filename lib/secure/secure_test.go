@@ -3,6 +3,9 @@ package secure_test
 import (
 	"bytes"
 	"crypto/x509"
+	"path/filepath"
+	"regexp"
+	"strconv"
 	"testing"
 
 	"github.com/ysmood/got"
@@ -209,4 +212,28 @@ func TestECDH_ed25519(t *testing.T) {
 
 	g.Len(s1, 32)
 	g.Eq(s1, s2)
+}
+
+func TestPublicKeySize(t *testing.T) {
+	g := got.T(t)
+
+	check := func(file string) {
+		g.Helper()
+
+		key, err := secure.SSHPubKey(g.Read(file).Bytes())
+		g.E(err)
+
+		ms := regexp.MustCompile(`(\d+).pub`).FindStringSubmatch(file)
+		size, err := strconv.ParseInt(ms[1], 10, 64)
+		g.E(err)
+
+		g.Desc(file).Eq(secure.PublicKeySize(key), size)
+	}
+
+	ms, err := filepath.Glob("shared-keys/*.pub")
+	g.E(err)
+
+	for _, p := range ms {
+		check(p)
+	}
 }
