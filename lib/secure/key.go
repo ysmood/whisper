@@ -165,6 +165,19 @@ func PublicKeySize(pub crypto.PublicKey) int {
 	}
 }
 
+func PrivateKeySize(prv crypto.PrivateKey) int {
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		return key.Params().BitSize
+	case *rsa.PrivateKey:
+		return key.N.BitLen()
+	case ed25519.PrivateKey:
+		return len(key.Seed()) * 8
+	default:
+		return 0
+	}
+}
+
 // ed25519PrivateKeyToCurve25519 converts a ed25519 private key in X25519 equivalent
 // source: https://github.com/FiloSottile/age/blob/980763a16e30ea5c285c271344d2202fcb18c33b/agessh/agessh.go#L287
 func ed25519PrivateKeyToCurve25519(pk ed25519.PrivateKey) []byte {

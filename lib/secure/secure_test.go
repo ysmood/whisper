@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ysmood/got"
@@ -228,6 +229,17 @@ func TestPublicKeySize(t *testing.T) {
 		g.E(err)
 
 		g.Desc(file).Eq(secure.PublicKeySize(key), size)
+
+		file = strings.TrimSuffix(file, ".pub")
+
+		key, err = secure.SSHPrvKey(g.Read(file).Bytes(), "")
+		g.E(err)
+
+		ms = regexp.MustCompile(`(\d+)$`).FindStringSubmatch(file)
+		size, err = strconv.ParseInt(ms[1], 10, 64)
+		g.E(err)
+
+		g.Desc(file).Eq(secure.PrivateKeySize(key), size)
 	}
 
 	ms, err := filepath.Glob("shared-keys/*.pub")
