@@ -53,7 +53,8 @@ type Config struct {
 	Public []PublicKey
 }
 
-// New data encoding flow:
+// New encoder and decoder pair.
+// The encoding process:
 //
 //	data -> sign -> gzip -> encrypt -> base64
 func New(conf Config) (piper.EncodeDecoder, error) {
