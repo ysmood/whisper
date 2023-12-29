@@ -7,7 +7,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
 	"embed"
@@ -172,7 +174,7 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 		return EncryptAES(secret, aesKey, 0)
 
 	case *rsa.PublicKey:
-		panic("not implemented")
+		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, aesKey, nil)
 
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
@@ -219,7 +221,7 @@ func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte,
 		return DecryptAES(encryptedAESKey, secret, 0)
 
 	case *rsa.PrivateKey:
-		panic("not implemented")
+		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)
 
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
