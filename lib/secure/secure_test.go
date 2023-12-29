@@ -194,9 +194,10 @@ func TestWrongPassphrase(t *testing.T) {
 
 func TestSharedSecret(t *testing.T) {
 	g := got.T(t)
-	aesKey := g.RandBytes(32)
 
 	check := func(file string) {
+		aesKey := g.RandBytes(32)
+
 		prv01, err := secure.SSHPrvKey(g.Read(file).Bytes(), "test")
 		g.E(err)
 		pub01, err := secure.SSHPubKey(g.Read(file + ".pub").Bytes())
