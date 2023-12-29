@@ -99,8 +99,8 @@ func main() { //nolint: funlen
 	}
 
 	pubKeyMeta := PublicKeyMeta{
-		Sender:    *addPublicKey,
-		Receivers: publicKeys,
+		Sender:     *addPublicKey,
+		Recipients: publicKeys,
 	}
 
 	agentWhisper(*decryptMode, pubKeyMeta, conf, in, out)

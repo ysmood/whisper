@@ -13,14 +13,14 @@ import (
 func ExampleNew() {
 	sender, senderPub := whisper.PrivateKey{read("id_ecdsa"), "test"}, read("id_ecdsa.pub")
 
-	receiver01, receiver01Pub := whisper.PrivateKey{read("id_ecdsa01"), "test"}, read("id_ecdsa01.pub")
-	receiver02, receiver02Pub := whisper.PrivateKey{read("id_ecdsa02"), "test"}, read("id_ecdsa02.pub")
+	recipient01, recipient01Pub := whisper.PrivateKey{read("id_ecdsa01"), "test"}, read("id_ecdsa01.pub")
+	recipient02, recipient02Pub := whisper.PrivateKey{read("id_ecdsa02"), "test"}, read("id_ecdsa02.pub")
 
-	// Encrypt the message that can be decrypted by both receiver01 and receiver02.
-	enc, _ := whisper.EncodeString("hello world!", sender, receiver01Pub, receiver02Pub)
+	// Encrypt the message that can be decrypted by both recipient01 and recipient02.
+	enc, _ := whisper.EncodeString("hello world!", sender, recipient01Pub, recipient02Pub)
 
-	dec01, _ := whisper.DecodeString(enc, receiver01, senderPub)
-	dec02, _ := whisper.DecodeString(enc, receiver02, senderPub)
+	dec01, _ := whisper.DecodeString(enc, recipient01, senderPub)
+	dec02, _ := whisper.DecodeString(enc, recipient02, senderPub)
 
 	fmt.Println(dec01, dec02)
 

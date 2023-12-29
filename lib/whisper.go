@@ -41,20 +41,20 @@ type PrivateKey struct {
 	Passphrase string
 }
 
-func EncodeString(data string, sender PrivateKey, receivers ...[]byte) (string, error) {
-	bin, err := Encode([]byte(data), sender, receivers...)
+func EncodeString(data string, sender PrivateKey, recipients ...[]byte) (string, error) {
+	bin, err := Encode([]byte(data), sender, recipients...)
 	return string(bin), err
 }
 
-func DecodeString(data string, receiver PrivateKey, sender []byte) (string, error) {
-	bin, err := Decode([]byte(data), receiver, sender)
+func DecodeString(data string, recipient PrivateKey, sender []byte) (string, error) {
+	bin, err := Decode([]byte(data), recipient, sender)
 	return string(bin), err
 }
 
-func Encode(data []byte, sender PrivateKey, receivers ...[]byte) ([]byte, error) {
+func Encode(data []byte, sender PrivateKey, recipients ...[]byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	wp, err := New(Config{gzip.DefaultCompression, true, sender, toKeyWithFilters(receivers)})
+	wp, err := New(Config{gzip.DefaultCompression, true, sender, toKeyWithFilters(recipients)})
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +74,8 @@ func Encode(data []byte, sender PrivateKey, receivers ...[]byte) ([]byte, error)
 	return buf.Bytes(), err
 }
 
-func Decode(data []byte, receiver PrivateKey, sender []byte) ([]byte, error) {
-	wp, err := New(Config{0, true, receiver, toKeyWithFilters([][]byte{sender})})
+func Decode(data []byte, recipient PrivateKey, sender []byte) ([]byte, error) {
+	wp, err := New(Config{0, true, recipient, toKeyWithFilters([][]byte{sender})})
 	if err != nil {
 		return nil, err
 	}

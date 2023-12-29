@@ -1,4 +1,4 @@
-// Package secure makes encrypted data can only be decrypted by selected receivers.
+// Package secure makes encrypted data can only be decrypted by selected recipients.
 // It allows different types of public keys to secretly exchange data.
 //
 // Suppose we have a opponent X, X0 represents its private key, X1 represents its public key.
@@ -223,10 +223,9 @@ func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 
 	for _, encryptedKey = range encryptedKeys {
 		if bytes.Equal(encryptedKey[:PUBLIC_KEY_ID_SIZE], id) {
-			encryptedKey = encryptedKey[PUBLIC_KEY_ID_SIZE:]
-			break
+			return DecryptSharedSecret(encryptedKey[PUBLIC_KEY_ID_SIZE:], c.Key.prv)
 		}
 	}
 
-	return DecryptSharedSecret(encryptedKey, c.Key.prv)
+	return nil, fmt.Errorf("the private key is not a recipient :%w", ErrPrvKeyNotFound)
 }

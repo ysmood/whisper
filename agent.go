@@ -55,8 +55,8 @@ func agentCheckPassphrase(prv whisper.PrivateKey) bool {
 }
 
 type PublicKeyMeta struct {
-	Sender    string
-	Receivers publicKeysFlag
+	Sender     string
+	Recipients publicKeysFlag
 }
 
 func agentWhisper(decrypt bool, pubKeyMeta PublicKeyMeta, conf whisper.Config, inFile, outFile string) {
@@ -73,10 +73,10 @@ func agentWhisper(decrypt bool, pubKeyMeta PublicKeyMeta, conf whisper.Config, i
 		if len(req.Config.Public) == 0 {
 			req.Config.Public = append(req.Config.Public, pub)
 		}
-		extractReceivers(in)
+		extractRecipients(in)
 	} else {
 		req.PublicKey = prefixSender(pubKeyMeta.Sender, out)
-		prefixReceivers(pubKeyMeta.Receivers, out)
+		prefixRecipients(pubKeyMeta.Recipients, out)
 	}
 
 	whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
@@ -120,13 +120,13 @@ func prefixSender(sender string, out io.Writer) secure.KeyWithFilter {
 	return key
 }
 
-func prefixReceivers(receivers publicKeysFlag, out io.Writer) {
-	for _, receiver := range receivers {
-		if receiver[0] != '@' {
+func prefixRecipients(recipients publicKeysFlag, out io.Writer) {
+	for _, r := range recipients {
+		if r[0] != '@' {
 			continue
 		}
 
-		_, err := out.Write([]byte(receiver + " "))
+		_, err := out.Write([]byte(r + " "))
 		if err != nil {
 			panic(err)
 		}
@@ -187,7 +187,7 @@ func extractSender(in io.Reader) secure.KeyWithFilter {
 	}
 }
 
-func extractReceivers(in io.Reader) {
+func extractRecipients(in io.Reader) {
 	buf := make([]byte, 1)
 
 	for {
