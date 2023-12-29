@@ -21,15 +21,15 @@ func main() { //nolint: funlen
 	agent := flags.Bool(AGENT_FLAG, false,
 		"run as agent, you can use WHISPER_AGENT_ADDR to specify the host and port to listen on")
 
-	privateKey := flags.String("k", DEFAULT_KEY_NAME, "private key path")
-	passphrase := flags.String("s", "", "passphrase to decrypt the private key")
+	privateKey := flags.String("P", DEFAULT_KEY_NAME,
+		"private key path. To set its passphrase, either set env var PASSPHRASE or input it via cli prompt")
 
 	addPublicKey := flags.String("a", "",
 		`add public key to the beginning of the output, can be a local file path,`+
 			` "@{GITHUB_ID}", "@{HTTPS_URL}, or "." for the default key`)
 
 	var publicKeys publicKeysFlag
-	flags.Var(&publicKeys, "p", `the public keys, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
+	flags.Var(&publicKeys, "r", `the public keys, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}"`)
 
 	bin := flags.Bool("b", false, "encoding data as binary instead of base64")
 
@@ -78,7 +78,7 @@ func main() { //nolint: funlen
 		Base64:    !*bin,
 		Private: whisper.PrivateKey{
 			Data:       getKey(*privateKey),
-			Passphrase: *passphrase,
+			Passphrase: os.Getenv("PASSPHRASE"),
 		},
 		Public: getPublicKeys(publicKeys),
 	}
