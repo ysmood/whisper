@@ -195,16 +195,16 @@ func TestWrongPassphrase(t *testing.T) {
 func TestECDH_ed25519(t *testing.T) {
 	g := got.T(t)
 
-	prv01, err := secure.SSHPrvKey(g.Read("test_data/id_ed25519_01").Bytes(), "test")
+	prv01, err := secure.SSHPrvKey(g.Read("test_data/id_ecdsa01").Bytes(), "test")
 	g.E(err)
-	pub01, err := secure.SSHPubKey(g.Read("test_data/id_ed25519_01.pub").Bytes())
+	pub01, err := secure.SSHPubKey(g.Read("test_data/id_ecdsa01.pub").Bytes())
 	g.E(err)
 
 	aesKey := g.RandBytes(32)
 	encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
 	g.E(err)
 
-	decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
+	decrypted, err := secure.DecryptSharedSecret(encrypted[secure.PUBLIC_KEY_ID_SIZE:], prv01)
 	g.E(err)
 
 	g.Eq(decrypted, aesKey)
