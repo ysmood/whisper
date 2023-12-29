@@ -25,10 +25,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/aes"
-	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"io"
 
@@ -96,73 +93,12 @@ func (s *Secure) AESKeys() ([]byte, [][]byte, error) {
 	return aesKey, encryptedKeys, nil
 }
 
-func (s *Secure) Sign(data []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-
-	w, err := s.Signer().Encoder(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		return nil, err
-	}
-
-	err = w.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
-}
-
-func (s *Secure) Verify(data []byte) ([]byte, bool) {
-	r, err := s.Signer().Decoder(bytes.NewBuffer(data))
-	if err != nil {
-		return nil, false
-	}
-
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return nil, false
-	}
-
-	return b, true
-}
-
-func (s *Secure) SigDigest(digest []byte) ([]byte, error) {
-	switch key := s.prv.(type) {
-	case *ecdsa.PrivateKey:
-		return key.Sign(rand.Reader, digest, nil)
-	case *rsa.PrivateKey:
-		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest)
-	case ed25519.PrivateKey:
-		return ed25519.Sign(key, digest), nil
-	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, s.prv)
-	}
-}
-
-func (s *Secure) VerifyDigest(digest, sign []byte) bool {
-	switch key := s.pub[0].(type) {
-	case *ecdsa.PublicKey:
-		return ecdsa.VerifyASN1(key, digest, sign)
-	case *rsa.PublicKey:
-		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sign) == nil
-	case ed25519.PublicKey:
-		return ed25519.Verify(key, digest, sign)
-	default:
-		return false
-	}
-}
-
 type Cipher struct {
-	Key *Secure
+	Secure *Secure
 }
 
-func (k *Secure) Cipher() *Cipher {
-	return &Cipher{Key: k}
+func (s *Secure) Cipher() *Cipher {
+	return &Cipher{Secure: s}
 }
 
 // Encoder format is:
@@ -171,7 +107,7 @@ func (k *Secure) Cipher() *Cipher {
 //
 // Each key is for a public key.
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
-	aesKey, encryptedKeys, err := c.Key.AESKeys()
+	aesKey, encryptedKeys, err := c.Secure.AESKeys()
 	if err != nil {
 		return nil, err
 	}
@@ -220,11 +156,11 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var encryptedKey []byte
-	id := PublicKeyIDByPrivateKey(c.Key.prv)
+	id := PublicKeyIDByPrivateKey(c.Secure.prv)
 
 	for _, encryptedKey = range encryptedKeys {
 		if bytes.Equal(encryptedKey[:PUBLIC_KEY_ID_SIZE], id) {
-			return DecryptSharedSecret(encryptedKey[PUBLIC_KEY_ID_SIZE:], c.Key.prv)
+			return DecryptSharedSecret(encryptedKey[PUBLIC_KEY_ID_SIZE:], c.Secure.prv)
 		}
 	}
 

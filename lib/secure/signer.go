@@ -1,20 +1,62 @@
 package secure
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
 )
 
-type Signer struct {
-	Key *Secure
+func (s *Secure) Sign(data []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+
+	w, err := s.Signer().Encoder(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
-func (k *Secure) Signer() *Signer {
-	return &Signer{Key: k}
+func (s *Secure) Verify(data []byte) ([]byte, bool) {
+	r, err := s.Signer().Decoder(bytes.NewBuffer(data))
+	if err != nil {
+		return nil, false
+	}
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, false
+	}
+
+	return b, true
+}
+
+type Signer struct {
+	Secure *Secure
+}
+
+func (s *Secure) Signer() *Signer {
+	return &Signer{Secure: s}
 }
 
 func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
@@ -40,7 +82,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 			}
 			closed = true
 
-			sign, err := s.Key.SigDigest(h.Sum(nil))
+			sign, err := s.SigDigest(h.Sum(nil))
 			if err != nil {
 				return err
 			}
@@ -88,7 +130,7 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			if len(sign) == 0 {
 				buf = data
 				n = buf.Consume(p)
-			} else if !s.Key.VerifyDigest(h.Sum(nil), sign) {
+			} else if !s.VerifyDigest(h.Sum(nil), sign) {
 				return 0, ErrSignNotMatch
 			}
 
@@ -98,4 +140,30 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			return piper.Close(r)
 		},
 	}, nil
+}
+
+func (s *Signer) SigDigest(digest []byte) ([]byte, error) {
+	switch key := s.Secure.prv.(type) {
+	case *ecdsa.PrivateKey:
+		return key.Sign(rand.Reader, digest, nil)
+	case *rsa.PrivateKey:
+		return rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest)
+	case ed25519.PrivateKey:
+		return ed25519.Sign(key, digest), nil
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, s.Secure.prv)
+	}
+}
+
+func (s *Signer) VerifyDigest(digest, sign []byte) bool {
+	switch key := s.Secure.pub[0].(type) {
+	case *ecdsa.PublicKey:
+		return ecdsa.VerifyASN1(key, digest, sign)
+	case *rsa.PublicKey:
+		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sign) == nil
+	case ed25519.PublicKey:
+		return ed25519.Verify(key, digest, sign)
+	default:
+		return false
+	}
 }
