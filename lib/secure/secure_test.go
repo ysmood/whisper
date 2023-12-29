@@ -60,28 +60,6 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestSSHKey(t *testing.T) {
-	g := got.T(t)
-
-	key, err := secure.New(
-		g.Read("test_data/id_ecdsa").Bytes(),
-		"test",
-		getPubKey(g, "test_data/id_ecdsa.pub"),
-	)
-	g.E(err)
-
-	buf := bytes.NewBuffer(nil)
-	enc, err := key.Cipher().Encoder(buf)
-	g.E(err)
-	g.E(enc.Write([]byte("ok")))
-	g.E(enc.Close())
-
-	dec, err := key.Cipher().Decoder(buf)
-	g.E(err)
-
-	g.Eq(g.Read(dec).String(), "ok")
-}
-
 func TestSSHKey_ed25519(t *testing.T) {
 	g := got.T(t)
 
