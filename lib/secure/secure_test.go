@@ -192,7 +192,7 @@ func TestWrongPassphrase(t *testing.T) {
 	g.Eq(err.Error(), e.Error())
 }
 
-func TestECDH_ed25519(t *testing.T) {
+func TestSharedSecret(t *testing.T) {
 	g := got.T(t)
 
 	prv01, err := secure.SSHPrvKey(g.Read("test_data/id_ecdsa01").Bytes(), "test")
@@ -204,7 +204,7 @@ func TestECDH_ed25519(t *testing.T) {
 	encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
 	g.E(err)
 
-	decrypted, err := secure.DecryptSharedSecret(encrypted[secure.PUBLIC_KEY_ID_SIZE:], prv01)
+	decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
 	g.E(err)
 
 	g.Eq(decrypted, aesKey)

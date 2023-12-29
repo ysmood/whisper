@@ -204,7 +204,7 @@ func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte,
 			return nil, err
 		}
 
-		return DecryptAES(encryptedAESKey, secret, 0)
+		return DecryptAES(secret, encryptedAESKey, 0)
 
 	case ed25519.PrivateKey:
 		xPrv := ed25519PrivateKeyToCurve25519(key)
@@ -218,7 +218,7 @@ func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte,
 			return nil, err
 		}
 
-		return DecryptAES(encryptedAESKey, secret, 0)
+		return DecryptAES(secret, encryptedAESKey, 0)
 
 	case *rsa.PrivateKey:
 		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)
