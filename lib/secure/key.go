@@ -1,7 +1,6 @@
 package secure
 
 import (
-	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
@@ -15,7 +14,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"strings"
 
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/curve25519"
@@ -101,18 +99,13 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 }
 
 // Belongs checks if pub key belongs to prv key.
-func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
+func Belongs(pub, prv []byte, passphrase string) bool {
 	prvKey, err := SSHPrvKey(prv, passphrase)
 	if err != nil {
 		return false
 	}
 
-	key, err := pub.GetKey()
-	if err != nil {
-		return false
-	}
-
-	pubKey, err := SSHPubKey(key)
+	pubKey, err := SSHPubKey(pub)
 	if err != nil {
 		return false
 	}
@@ -132,35 +125,6 @@ func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
 func IsAuthErr(err error) bool {
 	missingErr := &ssh.PassphraseMissingError{}
 	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
-}
-
-type KeyWithFilter struct {
-	Key    []byte
-	Filter string
-}
-
-var ErrPubKeyNotFound = errors.New("public key not found")
-
-func (key KeyWithFilter) GetKey() ([]byte, error) {
-	for _, l := range splitIntoLines(key.Key) {
-		if strings.Contains(l, key.Filter) {
-			return []byte(l), nil
-		}
-	}
-
-	return nil, fmt.Errorf("%w with filter: %s", ErrPubKeyNotFound, key.Filter)
-}
-
-func splitIntoLines(text []byte) []string {
-	scanner := bufio.NewScanner(bytes.NewReader(text))
-	scanner.Split(bufio.ScanLines)
-
-	var lines []string
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-
-	return lines
 }
 
 func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
@@ -299,7 +263,7 @@ func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
 	case *rsa.PrivateKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_RSA, size)
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrPubKeyNotFound, prv)
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
 	}
 
 	b, err := sharedKeys.ReadFile(file)
@@ -309,8 +273,6 @@ func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
 
 	return SSHPubKey(b)
 }
-
-var ErrPrvKeyNotFound = errors.New("private key not found")
 
 func FindPrvSharedKey(pub crypto.PublicKey) (crypto.PrivateKey, error) {
 	size := PublicKeySize(pub)
@@ -325,7 +287,7 @@ func FindPrvSharedKey(pub crypto.PublicKey) (crypto.PrivateKey, error) {
 	case *rsa.PublicKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_RSA, size)
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrPrvKeyNotFound, pub)
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
 	}
 
 	b, err := sharedKeys.ReadFile(file)

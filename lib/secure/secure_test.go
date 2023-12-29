@@ -14,18 +14,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func getPubKey(g got.G, file string) secure.KeyWithFilter {
-	return secure.KeyWithFilter{
-		Key:    g.Read(file).Bytes(),
-		Filter: "",
-	}
-}
-
 func TestBasic(t *testing.T) {
 	g := got.T(t)
 
-	private2, public2 := g.Read("test_data/id_ecdsa02").Bytes(), getPubKey(g, "test_data/id_ecdsa02.pub")
-	private3, public3 := g.Read("test_data/id_ecdsa03").Bytes(), getPubKey(g, "test_data/id_ecdsa03.pub")
+	private2, public2 := g.Read("test_data/id_ecdsa02").Bytes(), g.Read("test_data/id_ecdsa02.pub").Bytes()
+	private3, public3 := g.Read("test_data/id_ecdsa03").Bytes(), g.Read("test_data/id_ecdsa03.pub").Bytes()
 
 	buf := bytes.NewBuffer(nil)
 
@@ -67,14 +60,14 @@ func TestED25519(t *testing.T) { //nolint: dupl
 	key01, err := secure.New(
 		g.Read("test_data/id_ed25519_01").Bytes(),
 		"test",
-		getPubKey(g, "test_data/id_ed25519_02.pub"),
+		g.Read("test_data/id_ed25519_02.pub").Bytes(),
 	)
 	g.E(err)
 
 	key02, err := secure.New(
 		g.Read("test_data/id_ed25519_02").Bytes(),
 		"",
-		getPubKey(g, "test_data/id_ed25519_01.pub"),
+		g.Read("test_data/id_ed25519_01.pub").Bytes(),
 	)
 	g.E(err)
 
@@ -98,14 +91,14 @@ func TestRSA(t *testing.T) { //nolint: dupl
 	key01, err := secure.New(
 		g.Read("test_data/id_rsa01").Bytes(),
 		"test",
-		getPubKey(g, "test_data/id_rsa02.pub"),
+		g.Read("test_data/id_rsa02.pub").Bytes(),
 	)
 	g.E(err)
 
 	key02, err := secure.New(
 		g.Read("test_data/id_rsa02").Bytes(),
 		"test",
-		getPubKey(g, "test_data/id_rsa01.pub"),
+		g.Read("test_data/id_rsa01.pub").Bytes(),
 	)
 	g.E(err)
 
@@ -126,7 +119,7 @@ func TestRSA(t *testing.T) { //nolint: dupl
 func TestSelfPrivateKey(t *testing.T) {
 	g := got.T(t)
 
-	private, public := g.Read("test_data/id_ecdsa").Bytes(), getPubKey(g, "test_data/id_ecdsa.pub")
+	private, public := g.Read("test_data/id_ecdsa").Bytes(), g.Read("test_data/id_ecdsa.pub").Bytes()
 
 	key, err := secure.New(private, "test", public)
 	g.E(err)
@@ -148,7 +141,7 @@ func TestSigner(t *testing.T) {
 
 	data := bytes.Repeat([]byte("ok"), 10000)
 
-	private, public := g.Read("test_data/id_ecdsa").Bytes(), getPubKey(g, "test_data/id_ecdsa.pub")
+	private, public := g.Read("test_data/id_ecdsa").Bytes(), g.Read("test_data/id_ecdsa.pub").Bytes()
 
 	key, err := secure.New(private, "test", public)
 	g.E(err)
@@ -242,19 +235,19 @@ func TestBelongs(t *testing.T) {
 	g := got.T(t)
 
 	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_ecdsa.pub"),
+		g.Read("test_data/id_ecdsa.pub").Bytes(),
 		g.Read("test_data/id_ecdsa").Bytes(),
 		"test",
 	))
 
 	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_rsa01.pub"),
+		g.Read("test_data/id_rsa01.pub").Bytes(),
 		g.Read("test_data/id_rsa01").Bytes(),
 		"test",
 	))
 
 	g.True(secure.Belongs(
-		getPubKey(g, "test_data/id_ed25519_01.pub"),
+		g.Read("test_data/id_ed25519_01.pub").Bytes(),
 		g.Read("test_data/id_ed25519_01").Bytes(),
 		"test",
 	))

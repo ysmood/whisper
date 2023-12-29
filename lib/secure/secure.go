@@ -32,7 +32,7 @@ type Secure struct {
 	prv crypto.PrivateKey
 }
 
-func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Secure, error) {
+func New(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Secure, error) {
 	var prv crypto.PrivateKey
 	var err error
 
@@ -45,12 +45,7 @@ func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Se
 
 	pub := []crypto.PublicKey{}
 	for _, publicKey := range publicKeys {
-		b, err := publicKey.GetKey()
-		if err != nil {
-			return nil, err
-		}
-
-		key, err := SSHPubKey(b)
+		key, err := SSHPubKey(publicKey)
 		if err != nil {
 			return nil, err
 		}

@@ -76,6 +76,8 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 	return piper.NewAES(aesKey, 2).Decoder(r)
 }
 
+var ErrNotRecipient = fmt.Errorf("not a recipient")
+
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var encryptedKey []byte
 	id := PublicKeyIDByPrivateKey(c.Secure.prv)
@@ -86,5 +88,5 @@ func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("the private key is not a recipient: %w", ErrPrvKeyNotFound)
+	return nil, fmt.Errorf("failed to use the private key to decode the encrypted key: %w", ErrNotRecipient)
 }
