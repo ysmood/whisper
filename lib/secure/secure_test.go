@@ -61,7 +61,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestSSHKey_ed25519(t *testing.T) {
+func TestED25519(t *testing.T) {
 	g := got.T(t)
 
 	key01, err := secure.New(
@@ -84,13 +84,15 @@ func TestSSHKey_ed25519(t *testing.T) {
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
+	g.Eq(buf.Len(), 63)
+
 	dec, err := key02.Cipher().Decoder(buf)
 	g.E(err)
 
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
-func TestSSHKey_rsa(t *testing.T) {
+func TestRSA(t *testing.T) {
 	g := got.T(t)
 
 	key01, err := secure.New(
@@ -112,6 +114,8 @@ func TestSSHKey_rsa(t *testing.T) {
 	g.E(err)
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
+
+	g.Eq(buf.Len(), 416)
 
 	dec, err := key02.Cipher().Decoder(buf)
 	g.E(err)
