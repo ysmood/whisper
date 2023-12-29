@@ -25,6 +25,14 @@ func toPublicKey(keys [][]byte) []PublicKey {
 	return res
 }
 
+func fromPublicKey(keys []PublicKey) [][]byte {
+	res := make([][]byte, len(keys))
+	for i, key := range keys {
+		res[i] = key.Data
+	}
+	return res
+}
+
 func splitIntoLines(text []byte) []string {
 	scanner := bufio.NewScanner(bytes.NewReader(text))
 	scanner.Split(bufio.ScanLines)

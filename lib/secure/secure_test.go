@@ -30,7 +30,7 @@ func TestBasic(t *testing.T) {
 		g.E(err)
 		g.E(enc.Write([]byte("ok")))
 		g.E(enc.Close())
-		g.Len(buf.Bytes(), 104)
+		g.Len(buf.Bytes(), 120)
 	}
 
 	{
@@ -77,7 +77,7 @@ func TestED25519(t *testing.T) { //nolint: dupl
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	g.Eq(buf.Len(), 63)
+	g.Eq(buf.Len(), 71)
 
 	dec, err := key02.Cipher().Decoder(buf)
 	g.E(err)
@@ -108,7 +108,7 @@ func TestRSA(t *testing.T) { //nolint: dupl
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	g.Eq(buf.Len(), 416)
+	g.Eq(buf.Len(), 424)
 
 	dec, err := key02.Cipher().Decoder(buf)
 	g.E(err)

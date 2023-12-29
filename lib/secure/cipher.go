@@ -88,5 +88,5 @@ func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("failed to use the private key to decode the encrypted key: %w", ErrNotRecipient)
+	return nil, ErrNotRecipient
 }

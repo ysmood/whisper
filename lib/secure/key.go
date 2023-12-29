@@ -319,7 +319,7 @@ func ed25519PublicKeyToCurve25519(pk ed25519.PublicKey) ([]byte, error) {
 	return p.BytesMontgomery(), nil
 }
 
-const PUBLIC_KEY_ID_SIZE = 8
+const PUBLIC_KEY_ID_SIZE = md5.Size
 
 func PublicKeyID(pub crypto.PublicKey) []byte {
 	h := md5.New()

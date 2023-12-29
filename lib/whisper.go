@@ -41,18 +41,23 @@ func (k PublicKey) GetKey() ([]byte, error) {
 }
 
 type Config struct {
+	// Gzip compression level
 	GzipLevel int
-	Base64    bool
-	Private   PrivateKey
-	Sign      PublicKey
-	Public    []PublicKey
+	// Whether to encode the final data to base64
+	Base64 bool
+	// Used to decrypt the data
+	Private *PrivateKey
+	// When it's set, the Private field must be set too
+	Sign *PublicKey
+	// Used to encrypt the data for different recipients
+	Public []PublicKey
 }
 
 // New data encoding flow:
 //
-//	data -> gzip -> encrypt -> base64
+//	data -> sign -> gzip -> encrypt -> base64
 func New(conf Config) (piper.EncodeDecoder, error) {
-	key, err := secure.New(conf.Private.Data, conf.Private.Passphrase, conf.Public...)
+	key, err := secure.New(conf.Private.Data, conf.Private.Passphrase, fromPublicKey(conf.Public)...)
 	if err != nil {
 		return nil, err
 	}
