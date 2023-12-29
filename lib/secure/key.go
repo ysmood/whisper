@@ -154,7 +154,7 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 			return nil, err
 		}
 
-		return EncryptAES(secret, aesKey)
+		return EncryptAES(secret, aesKey, 0)
 
 	case ed25519.PublicKey:
 		xPriv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
@@ -168,7 +168,7 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 			return nil, err
 		}
 
-		return EncryptAES(secret, aesKey)
+		return EncryptAES(secret, aesKey, 0)
 
 	case *rsa.PublicKey:
 		panic("not implemented")

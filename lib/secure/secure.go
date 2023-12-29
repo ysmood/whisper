@@ -186,7 +186,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 		}
 	}
 
-	return piper.NewAES(aesKey).Encoder(w)
+	return piper.NewAES(aesKey, 2).Encoder(w)
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
@@ -213,7 +213,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return piper.NewAES(aesKey).Decoder(r)
+	return piper.NewAES(aesKey, 2).Decoder(r)
 }
 
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
