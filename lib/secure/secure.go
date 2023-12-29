@@ -9,14 +9,14 @@
 //
 // Encryption steps:
 //
-//	Find M0 from S that has the same type of Y1.
+//	Find M0 from S that has the same key type and size as Y1.
 //	Use Y1 and M0 to generate the shared secret key K.
 //	Use K to encrypt the D to encrypted data E.
-//	Send K and E to Y.
+//	Send E to Y.
 //
 // Decryption steps:
 //
-//	Find M1 from S that has the same type of Y0.
+//	Find M1 from S that has the same key type and size as Y0.
 //	Use Y0 and M1 to generate the shared secret key K.
 //	Use K to decrypt E.
 package secure
