@@ -100,6 +100,35 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 	}
 }
 
+// Belongs checks if pub key belongs to prv key.
+func Belongs(pub KeyWithFilter, prv []byte, passphrase string) bool {
+	prvKey, err := SSHPrvKey(prv, passphrase)
+	if err != nil {
+		return false
+	}
+
+	key, err := pub.GetKey()
+	if err != nil {
+		return false
+	}
+
+	pubKey, err := SSHPubKey(key)
+	if err != nil {
+		return false
+	}
+
+	switch key := pubKey.(type) {
+	case *ecdsa.PublicKey:
+		return prvKey.(*ecdsa.PrivateKey).PublicKey.Equal(key)
+	case ed25519.PublicKey:
+		return bytes.Equal(prvKey.(ed25519.PrivateKey).Public().(ed25519.PublicKey), key)
+	case *rsa.PublicKey:
+		return prvKey.(*rsa.PrivateKey).PublicKey.Equal(key)
+	}
+
+	return false
+}
+
 func IsAuthErr(err error) bool {
 	missingErr := &ssh.PassphraseMissingError{}
 	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
