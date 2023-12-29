@@ -237,3 +237,25 @@ func TestKeyTypes(t *testing.T) {
 		check(p)
 	}
 }
+
+func TestBelongs(t *testing.T) {
+	g := got.T(t)
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_ecdsa.pub"),
+		g.Read("test_data/id_ecdsa").Bytes(),
+		"test",
+	))
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_rsa01.pub"),
+		g.Read("test_data/id_rsa01").Bytes(),
+		"test",
+	))
+
+	g.True(secure.Belongs(
+		getPubKey(g, "test_data/id_ed25519_01.pub"),
+		g.Read("test_data/id_ed25519_01").Bytes(),
+		"test",
+	))
+}
