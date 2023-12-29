@@ -63,11 +63,16 @@ func (g *Gzip) Decoder(r io.Reader) (io.ReadCloser, error) {
 }
 
 type AES struct {
-	Key []byte
+	Key   []byte
+	Guard int
 }
 
-func NewAES(key []byte) EncodeDecoder {
-	return &AES{Key: key}
+func NewAES(key []byte, guard int) EncodeDecoder {
+	if guard > aes.BlockSize {
+		panic("guard size can't be larger than aes.BlockSize")
+	}
+
+	return &AES{Key: key, Guard: guard}
 }
 
 func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
@@ -94,7 +99,7 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 	}
 
 	// https://www.rfc-editor.org/rfc/rfc4880#section-5.13
-	_, err = s.Write(iv[:2])
+	_, err = s.Write(iv[:a.Guard])
 	if err != nil {
 		return nil, err
 	}
@@ -122,14 +127,14 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 		R: r,
 	})
 
-	guard := make([]byte, 2)
+	guard := make([]byte, a.Guard)
 
 	_, err = io.ReadFull(rc, guard)
 	if err != nil {
 		return nil, err
 	}
 
-	if !bytes.Equal(guard, iv[:2]) {
+	if !bytes.Equal(guard, iv[:a.Guard]) {
 		return nil, ErrAESDecode
 	}
 
