@@ -194,20 +194,26 @@ func TestWrongPassphrase(t *testing.T) {
 
 func TestSharedSecret(t *testing.T) {
 	g := got.T(t)
-
-	prv01, err := secure.SSHPrvKey(g.Read("test_data/id_ecdsa01").Bytes(), "test")
-	g.E(err)
-	pub01, err := secure.SSHPubKey(g.Read("test_data/id_ecdsa01.pub").Bytes())
-	g.E(err)
-
 	aesKey := g.RandBytes(32)
-	encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
-	g.E(err)
 
-	decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
-	g.E(err)
+	check := func(file string) {
+		prv01, err := secure.SSHPrvKey(g.Read(file).Bytes(), "test")
+		g.E(err)
+		pub01, err := secure.SSHPubKey(g.Read(file + ".pub").Bytes())
+		g.E(err)
 
-	g.Eq(decrypted, aesKey)
+		encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
+		g.E(err)
+
+		decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
+		g.E(err)
+
+		g.Eq(decrypted, aesKey)
+	}
+
+	check("test_data/id_ecdsa01")
+	check("test_data/id_ed25519_01")
+	check("test_data/id_rsa01")
 }
 
 func TestKeyTypes(t *testing.T) {
