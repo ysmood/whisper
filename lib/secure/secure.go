@@ -228,5 +228,5 @@ func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("the private key is not a recipient :%w", ErrPrvKeyNotFound)
+	return nil, fmt.Errorf("the private key is not a recipient: %w", ErrPrvKeyNotFound)
 }
