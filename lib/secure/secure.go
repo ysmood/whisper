@@ -82,7 +82,7 @@ func (s *Secure) AESKeys() ([]byte, [][]byte, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range s.pub {
-		encryptedKey, err := SharedSecret(aesKey, pub)
+		encryptedKey, err := EncryptSharedSecret(aesKey, pub)
 		if err != nil {
 			return nil, nil, err
 		}

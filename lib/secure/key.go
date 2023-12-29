@@ -134,7 +134,7 @@ func splitIntoLines(text []byte) []string {
 	return lines
 }
 
-func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
+func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
 	private, err := FindPrvSharedKey(pub)
 	if err != nil {
 		return nil, err

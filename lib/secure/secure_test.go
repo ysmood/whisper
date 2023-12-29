@@ -201,7 +201,7 @@ func TestECDH_ed25519(t *testing.T) {
 	g.E(err)
 
 	aesKey := g.RandBytes(32)
-	encrypted, err := secure.SharedSecret(aesKey, pub01)
+	encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
 	g.E(err)
 
 	decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
