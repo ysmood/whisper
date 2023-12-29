@@ -131,7 +131,7 @@ func splitIntoLines(text []byte) []string {
 	return lines
 }
 
-func SharedSecret(pub crypto.PublicKey) ([]byte, error) {
+func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
 	private, err := FindPrvSharedKey(pub)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,13 @@ func SharedSecret(pub crypto.PublicKey) ([]byte, error) {
 			return nil, err
 		}
 
-		return prv.ECDH(public)
+		secret, err := prv.ECDH(public)
+		if err != nil {
+			return nil, err
+		}
+
+		return EncryptAES(secret, aesKey)
+
 	case ed25519.PublicKey:
 		xPriv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
 		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
@@ -157,7 +163,12 @@ func SharedSecret(pub crypto.PublicKey) ([]byte, error) {
 			return nil, err
 		}
 
-		return curve25519.X25519(xPriv, xPub)
+		secret, err := curve25519.X25519(xPriv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		return EncryptAES(secret, aesKey)
 
 	case *rsa.PublicKey:
 		panic("not implemented")
@@ -165,6 +176,10 @@ func SharedSecret(pub crypto.PublicKey) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
 	}
+}
+
+func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) {
+	panic("not implemented")
 }
 
 func PublicKeySize(pub crypto.PublicKey) int {

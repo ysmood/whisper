@@ -83,12 +83,7 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range k.pub {
-		key, err := SharedSecret(pub)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		encryptedKey, err := EncryptAES(key, aesKey)
+		encryptedKey, err := SharedSecret(aesKey, pub)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -223,14 +218,10 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var aesKey []byte
-
-	key, err := SharedSecret(c.Key.pub[0])
-	if err != nil {
-		return nil, err
-	}
+	var err error
 
 	for _, encryptedKey := range encryptedKeys {
-		aesKey, err = DecryptAES(key, encryptedKey)
+		aesKey, err = DecryptSharedSecret(encryptedKey, c.Key.prv)
 		if err == nil {
 			break
 		} else if !errors.Is(err, piper.ErrAESDecode) {

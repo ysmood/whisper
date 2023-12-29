@@ -200,19 +200,14 @@ func TestECDH_ed25519(t *testing.T) {
 	pub01, err := secure.SSHPubKey(g.Read("test_data/id_ed25519_01.pub").Bytes())
 	g.E(err)
 
-	prv02, err := secure.SSHPrvKey(g.Read("test_data/id_ed25519_02").Bytes(), "")
-	g.E(err)
-	pub02, err := secure.SSHPubKey(g.Read("test_data/id_ed25519_02.pub").Bytes())
-	g.E(err)
-
-	s1, err := secure.SharedSecret(prv01, pub02)
+	aesKey := g.RandBytes(32)
+	encrypted, err := secure.SharedSecret(aesKey, pub01)
 	g.E(err)
 
-	s2, err := secure.SharedSecret(prv02, pub01)
+	decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
 	g.E(err)
 
-	g.Len(s1, 32)
-	g.Eq(s1, s2)
+	g.Eq(decrypted, aesKey)
 }
 
 func TestKeyTypes(t *testing.T) {
