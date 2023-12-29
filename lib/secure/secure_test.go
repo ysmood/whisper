@@ -61,7 +61,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestED25519(t *testing.T) {
+func TestED25519(t *testing.T) { //nolint: dupl
 	g := got.T(t)
 
 	key01, err := secure.New(
