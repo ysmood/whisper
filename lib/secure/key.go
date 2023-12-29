@@ -60,9 +60,9 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 		switch eKey := key.(ssh.CryptoPublicKey).CryptoPublicKey().(type) {
 		case *ecdsa.PublicKey:
 			return eKey, nil
-		case *rsa.PublicKey:
-			return eKey, nil
 		case ed25519.PublicKey:
+			return eKey, nil
+		case *rsa.PublicKey:
 			return eKey, nil
 		default:
 			continue
@@ -88,10 +88,10 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 	switch eKey := key.(type) {
 	case *ecdsa.PrivateKey:
 		return eKey, nil
-	case *rsa.PrivateKey:
-		return eKey, nil
 	case *ed25519.PrivateKey:
 		return *eKey, nil
+	case *rsa.PrivateKey:
+		return eKey, nil
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
@@ -131,22 +131,27 @@ func splitIntoLines(text []byte) []string {
 	return lines
 }
 
-func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
-	switch key := prv.(type) {
-	case *ecdsa.PrivateKey:
-		private, err := key.ECDH()
+func SharedSecret(pub crypto.PublicKey) ([]byte, error) {
+	private, err := FindPrvSharedKey(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	switch key := pub.(type) {
+	case *ecdsa.PublicKey:
+		prv, err := private.(*ecdsa.PrivateKey).ECDH()
 		if err != nil {
 			return nil, err
 		}
 
-		public, err := pub.(*ecdsa.PublicKey).ECDH()
+		public, err := key.ECDH()
 		if err != nil {
 			return nil, err
 		}
 
-		return private.ECDH(public)
-	case ed25519.PrivateKey:
-		xPriv := ed25519PrivateKeyToCurve25519(key)
+		return prv.ECDH(public)
+	case ed25519.PublicKey:
+		xPriv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
 		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
 		if err != nil {
 			return nil, err
@@ -154,8 +159,11 @@ func SharedSecret(prv crypto.PrivateKey, pub crypto.PublicKey) ([]byte, error) {
 
 		return curve25519.X25519(xPriv, xPub)
 
+	case *rsa.PublicKey:
+		panic("not implemented")
+
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
 	}
 }
 
@@ -163,10 +171,10 @@ func PublicKeySize(pub crypto.PublicKey) int {
 	switch key := pub.(type) {
 	case *ecdsa.PublicKey:
 		return key.Params().BitSize
-	case *rsa.PublicKey:
-		return key.N.BitLen()
 	case ed25519.PublicKey:
 		return len(key) * 8
+	case *rsa.PublicKey:
+		return key.N.BitLen()
 	default:
 		return 0
 	}
@@ -176,10 +184,10 @@ func PrivateKeySize(prv crypto.PrivateKey) int {
 	switch key := prv.(type) {
 	case *ecdsa.PrivateKey:
 		return key.Params().BitSize
-	case *rsa.PrivateKey:
-		return key.N.BitLen()
 	case ed25519.PrivateKey:
 		return len(key.Seed()) * 8
+	case *rsa.PrivateKey:
+		return key.N.BitLen()
 	default:
 		return 0
 	}
@@ -196,10 +204,10 @@ func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
 	switch prv.(type) {
 	case *ecdsa.PrivateKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ECDSA, size)
-	case *rsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_RSA, size)
 	case ed25519.PrivateKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ED25519, size)
+	case *rsa.PrivateKey:
+		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_RSA, size)
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrPubKeyNotFound, prv)
 	}
@@ -222,10 +230,10 @@ func FindPrvSharedKey(pub crypto.PublicKey) (crypto.PrivateKey, error) {
 	switch pub.(type) {
 	case *ecdsa.PublicKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ECDSA, size)
-	case *rsa.PublicKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_RSA, size)
 	case ed25519.PublicKey:
 		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ED25519, size)
+	case *rsa.PublicKey:
+		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_RSA, size)
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrPrvKeyNotFound, pub)
 	}

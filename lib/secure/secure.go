@@ -29,7 +29,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -75,22 +74,7 @@ func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Ke
 }
 
 // AESKeys returns the AES key and encrypted keys for each public key.
-// If there's only one public key, the AES key will be the ECDH key.
-// If there're multiple public keys, a random base AES key will be generated,
-// then each ECDH key will be used to encrypt the base AES key.
 func (k *Key) AESKeys() ([]byte, [][]byte, error) {
-	if k.IsRSA() {
-		return k.rsaAESKeys()
-	}
-
-	if len(k.pub) == 1 {
-		key, err := SharedSecret(k.prv, k.pub[0])
-		if err != nil {
-			return nil, nil, err
-		}
-		return key, nil, nil
-	}
-
 	aesKey := make([]byte, aes.BlockSize)
 	_, err := rand.Read(aesKey)
 	if err != nil {
@@ -99,7 +83,7 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range k.pub {
-		key, err := SharedSecret(k.prv, pub)
+		key, err := SharedSecret(pub)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -113,33 +97,6 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 	}
 
 	return aesKey, encryptedKeys, nil
-}
-
-func (k *Key) rsaAESKeys() ([]byte, [][]byte, error) {
-	encryptedKeys := [][]byte{}
-
-	secretKey := make([]byte, 32)
-	_, err := rand.Read(secretKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, pub := range k.pub {
-		pubKey := pub.(*rsa.PublicKey)
-		encryptedKey, err := rsaEncrypt(pubKey, secretKey)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		signed, err := k.Sign(encryptedKey)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		encryptedKeys = append(encryptedKeys, signed)
-	}
-
-	return secretKey, encryptedKeys, nil
 }
 
 func (k *Key) Sign(data []byte) ([]byte, error) {
@@ -201,11 +158,6 @@ func (k *Key) VerifyDigest(digest, sign []byte) bool {
 	default:
 		return false
 	}
-}
-
-func (k *Key) IsRSA() bool {
-	_, ok := k.prv.(*rsa.PrivateKey)
-	return ok
 }
 
 type Cipher struct {
@@ -272,139 +224,19 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
 	var aesKey []byte
 
-	if c.Key.IsRSA() {
-		for _, signed := range encryptedKeys {
-			encryptedKey, valid := c.Key.Verify(signed)
-			if !valid {
-				continue
-			}
-
-			var err error
-			aesKey, err = rsaDecrypt(c.Key.prv.(*rsa.PrivateKey), encryptedKey)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return aesKey, nil
-	}
-
-	key, err := SharedSecret(c.Key.prv, c.Key.pub[0])
+	key, err := SharedSecret(c.Key.pub[0])
 	if err != nil {
 		return nil, err
 	}
 
-	if len(encryptedKeys) == 0 {
-		aesKey = key
-	} else {
-		for _, encryptedKey := range encryptedKeys {
-			aesKey, err = DecryptAES(key, encryptedKey)
-			if err == nil {
-				break
-			} else if !errors.Is(err, piper.ErrAESDecode) {
-				return nil, err
-			}
+	for _, encryptedKey := range encryptedKeys {
+		aesKey, err = DecryptAES(key, encryptedKey)
+		if err == nil {
+			break
+		} else if !errors.Is(err, piper.ErrAESDecode) {
+			return nil, err
 		}
 	}
 
 	return aesKey, nil
-}
-
-type Signer struct {
-	Key *Key
-}
-
-func (k *Key) Signer() *Signer {
-	return &Signer{Key: k}
-}
-
-func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
-	empty := []byte{}
-	h := sha256.New()
-	closed := false
-
-	return piper.WriteClose{
-		W: func(p []byte) (n int, err error) {
-			n = len(p)
-
-			_, err = h.Write(p)
-			if err != nil {
-				return 0, err
-			}
-
-			_, err = w.Write(append(byframe.Encode(p), byframe.Encode(empty)...))
-			return
-		},
-		C: func() error {
-			if closed {
-				return nil
-			}
-			closed = true
-
-			sign, err := s.Key.SigDigest(h.Sum(nil))
-			if err != nil {
-				return err
-			}
-
-			_, err = w.Write(append(byframe.Encode(empty), byframe.Encode(sign)...))
-			if err != nil {
-				return err
-			}
-
-			return piper.Close(w)
-		},
-	}, nil
-}
-
-var ErrSignNotMatch = errors.New("sign not match")
-
-func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
-	f := byframe.NewScanner(r)
-	f.Limit(1024 * 1024)
-	buf := piper.Buffer{}
-	h := sha256.New()
-
-	return piper.ReadClose{
-		R: func(p []byte) (n int, err error) {
-			if len(buf) > 0 {
-				n = buf.Consume(p)
-				return n, nil
-			}
-
-			data, err := f.Next()
-			if err != nil {
-				return 0, err
-			}
-
-			_, err = h.Write(data)
-			if err != nil {
-				return 0, err
-			}
-
-			sign, err := f.Next()
-			if err != nil {
-				return 0, err
-			}
-
-			if len(sign) == 0 {
-				buf = data
-				n = buf.Consume(p)
-			} else if !s.Key.VerifyDigest(h.Sum(nil), sign) {
-				return 0, ErrSignNotMatch
-			}
-
-			return n, nil
-		},
-		C: func() error {
-			return piper.Close(r)
-		},
-	}, nil
-}
-
-func rsaEncrypt(pub *rsa.PublicKey, data []byte) ([]byte, error) {
-	return rsa.EncryptOAEP(sha256.New(), rand.Reader, pub, data, nil)
-}
-
-func rsaDecrypt(prv *rsa.PrivateKey, data []byte) ([]byte, error) {
-	return rsa.DecryptOAEP(sha256.New(), rand.Reader, prv, data, nil)
 }
