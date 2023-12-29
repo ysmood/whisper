@@ -10,10 +10,10 @@ import (
 )
 
 type Signer struct {
-	Key *Key
+	Key *Secure
 }
 
-func (k *Key) Signer() *Signer {
+func (k *Secure) Signer() *Signer {
 	return &Signer{Key: k}
 }
 

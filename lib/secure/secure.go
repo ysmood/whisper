@@ -37,12 +37,12 @@ import (
 	"github.com/ysmood/whisper/lib/piper"
 )
 
-type Key struct {
+type Secure struct {
 	pub []crypto.PublicKey
 	prv crypto.PrivateKey
 }
 
-func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Key, error) {
+func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Secure, error) {
 	if len(publicKeys) == 0 {
 		return nil, ErrPubKeyNotFound
 	}
@@ -67,14 +67,14 @@ func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Ke
 		pub = append(pub, key)
 	}
 
-	return &Key{
+	return &Secure{
 		pub: pub,
 		prv: prv,
 	}, nil
 }
 
 // AESKeys returns the AES key and encrypted keys for each public key.
-func (k *Key) AESKeys() ([]byte, [][]byte, error) {
+func (s *Secure) AESKeys() ([]byte, [][]byte, error) {
 	aesKey := make([]byte, aes.BlockSize)
 	_, err := rand.Read(aesKey)
 	if err != nil {
@@ -82,7 +82,7 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 	}
 
 	encryptedKeys := [][]byte{}
-	for _, pub := range k.pub {
+	for _, pub := range s.pub {
 		encryptedKey, err := SharedSecret(aesKey, pub)
 		if err != nil {
 			return nil, nil, err
@@ -94,10 +94,10 @@ func (k *Key) AESKeys() ([]byte, [][]byte, error) {
 	return aesKey, encryptedKeys, nil
 }
 
-func (k *Key) Sign(data []byte) ([]byte, error) {
+func (s *Secure) Sign(data []byte) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 
-	w, err := k.Signer().Encoder(buf)
+	w, err := s.Signer().Encoder(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func (k *Key) Sign(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (k *Key) Verify(data []byte) ([]byte, bool) {
-	r, err := k.Signer().Decoder(bytes.NewBuffer(data))
+func (s *Secure) Verify(data []byte) ([]byte, bool) {
+	r, err := s.Signer().Decoder(bytes.NewBuffer(data))
 	if err != nil {
 		return nil, false
 	}
@@ -129,8 +129,8 @@ func (k *Key) Verify(data []byte) ([]byte, bool) {
 	return b, true
 }
 
-func (k *Key) SigDigest(digest []byte) ([]byte, error) {
-	switch key := k.prv.(type) {
+func (s *Secure) SigDigest(digest []byte) ([]byte, error) {
+	switch key := s.prv.(type) {
 	case *ecdsa.PrivateKey:
 		return key.Sign(rand.Reader, digest, nil)
 	case *rsa.PrivateKey:
@@ -138,12 +138,12 @@ func (k *Key) SigDigest(digest []byte) ([]byte, error) {
 	case ed25519.PrivateKey:
 		return ed25519.Sign(key, digest), nil
 	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, k.prv)
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, s.prv)
 	}
 }
 
-func (k *Key) VerifyDigest(digest, sign []byte) bool {
-	switch key := k.pub[0].(type) {
+func (s *Secure) VerifyDigest(digest, sign []byte) bool {
+	switch key := s.pub[0].(type) {
 	case *ecdsa.PublicKey:
 		return ecdsa.VerifyASN1(key, digest, sign)
 	case *rsa.PublicKey:
@@ -156,10 +156,10 @@ func (k *Key) VerifyDigest(digest, sign []byte) bool {
 }
 
 type Cipher struct {
-	Key *Key
+	Key *Secure
 }
 
-func (k *Key) Cipher() *Cipher {
+func (k *Secure) Cipher() *Cipher {
 	return &Cipher{Key: k}
 }
 
