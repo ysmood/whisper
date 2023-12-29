@@ -88,7 +88,7 @@ func (s *Secure) AESKeys() ([]byte, [][]byte, error) {
 			return nil, nil, err
 		}
 
-		encryptedKey = append(encryptedKey, PublicKeyID(pub)...)
+		encryptedKey = append(PublicKeyID(pub), encryptedKey...)
 
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
