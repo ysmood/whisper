@@ -179,7 +179,7 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 	}
 }
 
-func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) {
+func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) { //nolint: cyclop
 	public, err := FindPubSharedKey(prv)
 	if err != nil {
 		return nil, err
