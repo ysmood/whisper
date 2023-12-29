@@ -92,7 +92,7 @@ func TestED25519(t *testing.T) {
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
-func TestRSA(t *testing.T) {
+func TestRSA(t *testing.T) { //nolint: dupl
 	g := got.T(t)
 
 	key01, err := secure.New(
