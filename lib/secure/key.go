@@ -6,6 +6,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/md5"
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
@@ -157,13 +158,13 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 		return EncryptAES(secret, aesKey, 0)
 
 	case ed25519.PublicKey:
-		xPriv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
+		xPrv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
 		xPub, err := ed25519PublicKeyToCurve25519(pub.(ed25519.PublicKey))
 		if err != nil {
 			return nil, err
 		}
 
-		secret, err := curve25519.X25519(xPriv, xPub)
+		secret, err := curve25519.X25519(xPrv, xPub)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +180,50 @@ func SharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolin
 }
 
 func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) {
-	panic("not implemented")
+	public, err := FindPubSharedKey(prv)
+	if err != nil {
+		return nil, err
+	}
+
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		private, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		pub, err := public.(*ecdsa.PublicKey).ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := private.ECDH(pub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(encryptedAESKey, secret, 0)
+
+	case ed25519.PrivateKey:
+		xPrv := ed25519PrivateKeyToCurve25519(key)
+		xPub, err := ed25519PublicKeyToCurve25519(public.(ed25519.PublicKey))
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := curve25519.X25519(xPrv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(encryptedAESKey, secret, 0)
+
+	case *rsa.PrivateKey:
+		panic("not implemented")
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+	}
 }
 
 func PublicKeySize(pub crypto.PublicKey) int {
@@ -280,4 +324,26 @@ func ed25519PublicKeyToCurve25519(pk ed25519.PublicKey) ([]byte, error) {
 		return nil, err
 	}
 	return p.BytesMontgomery(), nil
+}
+
+const PUBLIC_KEY_ID_SIZE = 8
+
+func PublicKeyID(pub crypto.PublicKey) []byte {
+	h := md5.New()
+	var d []byte
+
+	switch key := pub.(type) {
+	case *ecdsa.PublicKey:
+		d = h.Sum(append(key.X.Bytes(), key.Y.Bytes()...))
+	case ed25519.PublicKey:
+		d = h.Sum(key)
+	case *rsa.PublicKey:
+		d = h.Sum(key.N.Bytes())
+	}
+
+	return d[:PUBLIC_KEY_ID_SIZE]
+}
+
+func PublicKeyIDByPrivateKey(prv crypto.PrivateKey) []byte {
+	return PublicKeyID(prv.(crypto.Signer).Public())
 }

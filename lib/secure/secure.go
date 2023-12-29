@@ -29,7 +29,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"io"
 
@@ -87,6 +86,8 @@ func (s *Secure) AESKeys() ([]byte, [][]byte, error) {
 		if err != nil {
 			return nil, nil, err
 		}
+
+		encryptedKey = append(encryptedKey, PublicKeyID(pub)...)
 
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
@@ -217,17 +218,15 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 }
 
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
-	var aesKey []byte
-	var err error
+	var encryptedKey []byte
+	id := PublicKeyIDByPrivateKey(c.Key.prv)
 
-	for _, encryptedKey := range encryptedKeys {
-		aesKey, err = DecryptSharedSecret(encryptedKey, c.Key.prv)
-		if err == nil {
+	for _, encryptedKey = range encryptedKeys {
+		if bytes.Equal(encryptedKey[:PUBLIC_KEY_ID_SIZE], id) {
+			encryptedKey = encryptedKey[PUBLIC_KEY_ID_SIZE:]
 			break
-		} else if !errors.Is(err, piper.ErrAESDecode) {
-			return nil, err
 		}
 	}
 
-	return aesKey, nil
+	return DecryptSharedSecret(encryptedKey, c.Key.prv)
 }
