@@ -19,8 +19,7 @@ type AgentReq struct {
 	Decrypt         bool
 	CheckPassphrase bool
 
-	PublicKey secure.KeyWithFilter
-	Config    Config
+	Config Config
 }
 
 type AgentRes struct {
@@ -154,9 +153,15 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 
 	a.cachePrivate(req.Config.Private)
 
-	if req.PublicKey.Key != nil &&
-		!secure.Belongs(req.PublicKey, req.Config.Private.Data, req.Config.Private.Passphrase) {
-		return a.res(s, AgentRes{WrongPublicKey: true})
+	if req.Config.Sign.Data != nil {
+		pub, err := req.Config.Sign.GetKey()
+		if err != nil {
+			return err
+		}
+
+		if !secure.Belongs(pub, req.Config.Private.Data, req.Config.Private.Passphrase) {
+			return a.res(s, AgentRes{WrongPublicKey: true})
+		}
 	}
 
 	err = a.res(s, AgentRes{})

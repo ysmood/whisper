@@ -17,8 +17,6 @@ type PrivateKey struct {
 
 	// Passphrase is used to decrypt the [PrivateKey.Data]
 	Passphrase string
-
-	Sign bool
 }
 
 type PublicKey struct {
@@ -46,6 +44,7 @@ type Config struct {
 	GzipLevel int
 	Base64    bool
 	Private   PrivateKey
+	Sign      PublicKey
 	Public    []PublicKey
 }
 
