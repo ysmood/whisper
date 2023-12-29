@@ -11,7 +11,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
-	"embed"
 	"errors"
 	"fmt"
 
@@ -73,8 +72,18 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 	return nil, fmt.Errorf("%w, can't find public key", ErrNotSupportedKey)
 }
 
+var privateKeyCache = map[string]crypto.PrivateKey{}
+
 // SSHPrvKey returns a private key from a ssh private key.
 func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
+	d := md5.New()
+	_, _ = d.Write(keyData)
+	id := string(d.Sum([]byte(passphrase)))
+
+	if key, ok := privateKeyCache[id]; ok {
+		return key, nil
+	}
+
 	var key interface{}
 	var err error
 	if passphrase == "" {
@@ -86,16 +95,22 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 		return nil, err
 	}
 
+	var prv crypto.PrivateKey
+
 	switch eKey := key.(type) {
 	case *ecdsa.PrivateKey:
-		return eKey, nil
+		prv = eKey
 	case *ed25519.PrivateKey:
-		return *eKey, nil
+		prv = *eKey
 	case *rsa.PrivateKey:
-		return eKey, nil
+		prv = eKey
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
+
+	privateKeyCache[id] = prv
+
+	return prv, nil
 }
 
 // Belongs checks if pub key belongs to prv key.
@@ -245,57 +260,6 @@ func PrivateKeySize(prv crypto.PrivateKey) int {
 	default:
 		return 0
 	}
-}
-
-//go:embed shared-keys
-var sharedKeys embed.FS
-
-func FindPubSharedKey(prv crypto.PrivateKey) (crypto.PublicKey, error) {
-	size := PrivateKeySize(prv)
-
-	var file string
-
-	switch prv.(type) {
-	case *ecdsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ECDSA, size)
-	case ed25519.PrivateKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_ED25519, size)
-	case *rsa.PrivateKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d.pub", KEY_TYPE_RSA, size)
-	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
-	}
-
-	b, err := sharedKeys.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return SSHPubKey(b)
-}
-
-func FindPrvSharedKey(pub crypto.PublicKey) (crypto.PrivateKey, error) {
-	size := PublicKeySize(pub)
-
-	var file string
-
-	switch pub.(type) {
-	case *ecdsa.PublicKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ECDSA, size)
-	case ed25519.PublicKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_ED25519, size)
-	case *rsa.PublicKey:
-		file = fmt.Sprintf("shared-keys/id_%s_%d", KEY_TYPE_RSA, size)
-	default:
-		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
-	}
-
-	b, err := sharedKeys.ReadFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return SSHPrvKey(b, "")
 }
 
 // ed25519PrivateKeyToCurve25519 converts a ed25519 private key in X25519 equivalent
