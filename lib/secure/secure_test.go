@@ -37,6 +37,7 @@ func TestBasic(t *testing.T) {
 		g.E(err)
 		g.E(enc.Write([]byte("ok")))
 		g.E(enc.Close())
+		g.Len(buf.Bytes(), 104)
 	}
 
 	{
