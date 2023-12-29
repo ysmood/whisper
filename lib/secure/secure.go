@@ -42,13 +42,14 @@ type Secure struct {
 }
 
 func New(privateKey []byte, passphrase string, publicKeys ...KeyWithFilter) (*Secure, error) {
-	if len(publicKeys) == 0 {
-		return nil, ErrPubKeyNotFound
-	}
+	var prv crypto.PrivateKey
+	var err error
 
-	prv, err := SSHPrvKey(privateKey, passphrase)
-	if err != nil {
-		return nil, err
+	if privateKey != nil {
+		prv, err = SSHPrvKey(privateKey, passphrase)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pub := []crypto.PublicKey{}

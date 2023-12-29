@@ -24,14 +24,13 @@ func getPubKey(g got.G, file string) secure.KeyWithFilter {
 func TestBasic(t *testing.T) {
 	g := got.T(t)
 
-	private1, public1 := g.Read("test_data/id_ecdsa01").Bytes(), getPubKey(g, "test_data/id_ecdsa01.pub")
 	private2, public2 := g.Read("test_data/id_ecdsa02").Bytes(), getPubKey(g, "test_data/id_ecdsa02.pub")
 	private3, public3 := g.Read("test_data/id_ecdsa03").Bytes(), getPubKey(g, "test_data/id_ecdsa03.pub")
 
 	buf := bytes.NewBuffer(nil)
 
 	{
-		key, err := secure.New(private1, "test", public2, public3)
+		key, err := secure.New(nil, "", public2, public3)
 		g.E(err)
 
 		enc, err := key.Cipher().Encoder(buf)
@@ -41,7 +40,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	{
-		key, err := secure.New(private2, "test", public1)
+		key, err := secure.New(private2, "test")
 		g.E(err)
 
 		dec, err := key.Cipher().Decoder(bytes.NewBuffer(buf.Bytes()))
@@ -51,7 +50,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	{
-		key, err := secure.New(private3, "test", public1)
+		key, err := secure.New(private3, "test")
 		g.E(err)
 
 		dec, err := key.Cipher().Decoder(bytes.NewBuffer(buf.Bytes()))
