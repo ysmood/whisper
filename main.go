@@ -71,13 +71,14 @@ func main() { //nolint: funlen
 
 	decrypt := len(publicKeys) == 0
 
-	private, input := getPrivate(decrypt, *signPublicKey != "", *privateKey, getInput(*inputFile, flags.Arg(0)))
-
+	input := getInput(*inputFile, flags.Arg(0))
 	output := getOutput(*outputFile)
 
 	if *enableBase64 {
 		input, output = wrapBase64(decrypt, input, output)
 	}
+
+	private, input := getPrivate(decrypt, *signPublicKey != "", *privateKey, input)
 
 	conf := whisper.Config{
 		GzipLevel: *compressLevel,
