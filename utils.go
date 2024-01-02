@@ -37,6 +37,9 @@ func readPassphrase() string {
 	if err != nil {
 		exit(err)
 	}
+
+	fmt.Fprintln(os.Stderr)
+
 	return string(inputPass)
 }
 
