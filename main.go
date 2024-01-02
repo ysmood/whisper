@@ -106,15 +106,13 @@ func getSign(flag string) *whisper.PublicKey {
 }
 
 var ErrUnableReadPassphrase = errors.New(
-	"stdin is used for piping, can't read passphrase from it, please specify the input file path in cli arg",
+	"stdin is used for piping, can't read passphrase from it, please use the -i flag for the input file",
 )
 
 func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*whisper.PrivateKey, io.ReadCloser) {
 	if !decrypt && !sign {
 		return nil, in
 	}
-
-	isStdin := in == os.Stdin
 
 	if location == "" {
 		if decrypt {
@@ -130,10 +128,6 @@ func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*wh
 	}
 
 	if !agentCheckPassphrase(private) {
-		if isStdin {
-			exit(ErrUnableReadPassphrase)
-		}
-
 		private.Passphrase = readPassphrase()
 	}
 
