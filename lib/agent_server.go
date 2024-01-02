@@ -18,6 +18,7 @@ type AgentReq struct {
 	Version         byte
 	Decrypt         bool
 	CheckPassphrase bool
+	ClearCache      bool
 
 	Config Config
 }
@@ -112,6 +113,10 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error {
 		return a.handleCheckVersion(s, req.Version)
 	}
 
+	if req.ClearCache {
+		return a.handleClearCache(s)
+	}
+
 	a.cacheLoadPrivate(&req.Config)
 
 	if req.CheckPassphrase {
@@ -128,6 +133,11 @@ func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version byte) err
 
 	a.Logger.Warn("version mismatch, close server", "server", Version, "client", version)
 	return a.listener.Close()
+}
+
+func (a *AgentServer) handleClearCache(s io.ReadWriteCloser) error {
+	a.cache.Clear()
+	return a.res(s, AgentRes{})
 }
 
 func (a *AgentServer) handleCheckPassphrase(s io.ReadWriteCloser, prv PrivateKey) error {
@@ -255,4 +265,11 @@ func (p *privateKeyCache) Set(key [md5.Size]byte, val string) {
 	defer p.lock.Unlock()
 
 	p.cache[key] = val
+}
+
+func (p *privateKeyCache) Clear() {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	p.cache = map[[md5.Size]byte]string{}
 }

@@ -79,3 +79,8 @@ func IsAgentRunning(addr string, version byte) (bool, error) {
 
 	return res.Running, nil
 }
+
+func ClearCache(addr string) error {
+	_, _, err := agentReq(addr, AgentReq{ClearCache: true})
+	return err
+}

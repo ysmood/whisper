@@ -4,11 +4,18 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+
+	whisper "github.com/ysmood/whisper/lib"
 )
 
 func cacheClear() {
 	// Remove the cache directory
 	err := os.RemoveAll(cacheDir())
+	if err != nil {
+		exit(err)
+	}
+
+	err = whisper.ClearCache(WHISPER_AGENT_ADDR)
 	if err != nil {
 		exit(err)
 	}
