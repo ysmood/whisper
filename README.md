@@ -57,12 +57,14 @@ Github generally exposes your public key file at `@https://github.com/{YOUR_ID}.
 
 ```bash
 # For github you can use the user id directly.
+# Here the user id is 'ysmood'.
 whisper -e='@ysmood' hello.txt > hello.wsp
 
 # For other sites you can use the full url.
-whisper -e='@https://github.com/ysmood.keys' hello.txt > hello.wsp
+whisper -e='@https://gitlab.com/jack.keys' hello.txt > hello.wsp
 
-# A authorized_keys file may contain several keys, you can add a suffix to select a specific key to encrypt.
+# A authorized_keys file may contain several keys,
+# you can add a suffix to select a specific key to encrypt.
 # 'ed25519' is the substring of the key we want to use.
 whisper -e='@ysmood:ed25519' hello.txt > hello.wsp
 
@@ -75,6 +77,7 @@ whisper hello.wsp
 # To sign and encrypt the data, you can use the `-s` flag.
 whisper -s='@ysmood' -e='@jack' hello.txt > hello.wsp
 
-# To verify the signature and decrypt the data. If -s flag is not provided, it will only decrypt the data.
+# To verify the signature and decrypt the data.
+# If -s flag is not provided, it will only decrypt the data.
 whisper -s='@ysmood' hello.wsp
 ```
