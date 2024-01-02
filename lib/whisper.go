@@ -86,9 +86,9 @@ type Whisper struct {
 // New encoder and decoder pair.
 // The encoding process:
 //
-//	data -> sign -> gzip -> cipher -> meta
+//	data -> gzip -> cipher -> sign -> meta
 //
-// The sign, gzip and base64 are optional.
+// The sign, gzip are optional.
 //
 // Decoding is the reverse as the encoding.
 // It will still decode the whole data even the signature check fails, it will return [secure.ErrSignNotMatch] error.
@@ -102,29 +102,6 @@ var ErrPubPrvNotMatch = errors.New("public and private key not match")
 
 func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) { //nolint: cyclop
 	pipeline := []piper.EncodeDecoder{}
-
-	// sign
-	if w.conf.Sign != nil {
-		if w.conf.Private == nil {
-			return nil, ErrNoPrivateKey
-		}
-
-		belongs, err := secure.Belongs(w.conf.Sign.Data, w.conf.Private.Data, w.conf.Private.Passphrase)
-		if err != nil {
-			return nil, err
-		}
-
-		if !belongs {
-			return nil, ErrPubPrvNotMatch
-		}
-
-		sign, err := secure.NewSignerBytes(w.conf.Private.Data, w.conf.Private.Passphrase)
-		if err != nil {
-			return nil, err
-		}
-
-		pipeline = append(pipeline, sign)
-	}
 
 	// gzip
 	if w.conf.GzipLevel != gzip.NoCompression {
@@ -151,6 +128,29 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) { //nolint: cyc
 		pipeline = append(pipeline, cipher)
 	}
 
+	// sign
+	if w.conf.Sign != nil {
+		if w.conf.Private == nil {
+			return nil, ErrNoPrivateKey
+		}
+
+		belongs, err := secure.Belongs(w.conf.Sign.Data, w.conf.Private.Data, w.conf.Private.Passphrase)
+		if err != nil {
+			return nil, err
+		}
+
+		if !belongs {
+			return nil, ErrPubPrvNotMatch
+		}
+
+		sign, err := secure.NewSignerBytes(w.conf.Private.Data, w.conf.Private.Passphrase)
+		if err != nil {
+			return nil, err
+		}
+
+		pipeline = append(pipeline, sign)
+	}
+
 	// meta
 	err := w.conf.EncodeMeta(out)
 	if err != nil {
@@ -167,25 +167,6 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 	meta, err := DecodeMeta(in)
 	if err != nil {
 		return nil, err
-	}
-
-	// sign
-	if meta.Sign {
-		keys := [][]byte{}
-		if w.conf.Sign != nil {
-			key, err := w.conf.Sign.Select()
-			if err != nil {
-				return nil, err
-			}
-			keys = append(keys, key)
-		}
-
-		sign, err := secure.NewSignerBytes(nil, "", keys...)
-		if err != nil {
-			return nil, err
-		}
-
-		pipeline = append(pipeline, sign)
 	}
 
 	// gzip
@@ -210,6 +191,25 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 		}
 
 		pipeline = append(pipeline, cipher)
+	}
+
+	// sign
+	if meta.Sign {
+		keys := [][]byte{}
+		if w.conf.Sign != nil {
+			key, err := w.conf.Sign.Select()
+			if err != nil {
+				return nil, err
+			}
+			keys = append(keys, key)
+		}
+
+		sign, err := secure.NewSignerBytes(nil, "", keys...)
+		if err != nil {
+			return nil, err
+		}
+
+		pipeline = append(pipeline, sign)
 	}
 
 	return piper.Join(pipeline...).Decoder(in)
