@@ -65,7 +65,7 @@ func IsPassphraseRight(addr string, prv PrivateKey) (bool, error) {
 	return res.PassphraseRight, nil
 }
 
-func IsAgentRunning(addr string, version byte) (bool, error) {
+func IsAgentRunning(addr, version string) (bool, error) {
 	res, stream, err := agentReq(addr, AgentReq{Version: version})
 	if err != nil {
 		if stream == nil {

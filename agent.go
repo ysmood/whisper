@@ -13,13 +13,13 @@ import (
 )
 
 func runAsAgent() {
-	log.Println("whisper agent started, version:", int(whisper.Version))
+	log.Println("whisper agent started, version:", whisper.APIVersion)
 
 	whisper.NewAgentServer().Serve(WHISPER_AGENT_ADDR)
 }
 
 func startAgent() {
-	running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.Version)
+	running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
 	if err != nil {
 		exit(err)
 	}
@@ -48,7 +48,7 @@ func startAgent() {
 	log.Println("wait for background whisper agent to start ...")
 
 	for {
-		running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.Version)
+		running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
 		if err != nil {
 			exit(err)
 		}

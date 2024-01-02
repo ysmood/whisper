@@ -15,7 +15,7 @@ import (
 )
 
 type AgentReq struct {
-	Version         byte
+	Version         string
 	Decrypt         bool
 	CheckPassphrase bool
 	ClearCache      bool
@@ -109,7 +109,7 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error {
 		return err
 	}
 
-	if req.Version != 0 {
+	if req.Version != "" {
 		return a.handleCheckVersion(s, req.Version)
 	}
 
@@ -126,12 +126,12 @@ func (a *AgentServer) Handle(s io.ReadWriteCloser) error {
 	return a.handleWhisper(s, req)
 }
 
-func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version byte) error {
-	if version == Version {
+func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version string) error {
+	if version == APIVersion {
 		return a.res(s, AgentRes{Running: true})
 	}
 
-	a.Logger.Warn("version mismatch, close server", "server", Version, "client", version)
+	a.Logger.Warn("version mismatch, close server", "server", FormatVersion, "client", version)
 	return a.listener.Close()
 }
 

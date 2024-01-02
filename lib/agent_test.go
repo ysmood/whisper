@@ -24,7 +24,7 @@ func TestAgentVersionMatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.IsAgentRunning(addr, whisper.Version)
+	r, err := whisper.IsAgentRunning(addr, whisper.APIVersion)
 	g.E(err)
 	g.True(r)
 }
@@ -41,7 +41,7 @@ func TestAgentVersionMismatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.IsAgentRunning(addr, 200)
+	r, err := whisper.IsAgentRunning(addr, "v0.0.0")
 	g.E(err)
 	g.False(r)
 

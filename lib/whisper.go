@@ -12,6 +12,11 @@ import (
 	"github.com/ysmood/whisper/lib/secure"
 )
 
+const (
+	APIVersion    = "v0.3.2"
+	FormatVersion = byte(2)
+)
+
 type PrivateKey struct {
 	Data []byte
 

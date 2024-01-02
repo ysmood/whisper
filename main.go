@@ -53,7 +53,7 @@ func main() { //nolint: funlen
 	}
 
 	if *version {
-		fmt.Printf("v%d\n", int(whisper.Version))
+		fmt.Println(whisper.APIVersion)
 		return
 	}
 

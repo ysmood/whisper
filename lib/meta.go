@@ -4,13 +4,12 @@ import (
 	"compress/gzip"
 	"crypto/sha1"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/secure"
 )
-
-const Version = byte(1)
 
 type MetaFlag byte
 
@@ -39,7 +38,7 @@ func (c Config) EncodeMeta(out io.Writer) error {
 
 	buf := []byte{
 		// version
-		Version,
+		FormatVersion,
 		// flags
 		c.genFlags(long),
 	}
@@ -86,8 +85,13 @@ func DecodeMeta(in io.Reader) (*Meta, error) { //nolint: funlen
 
 		version := oneByte[0]
 
-		if version != Version {
-			return nil, ErrVersionMismatch
+		if version != FormatVersion {
+			return nil, fmt.Errorf(
+				"%w: expect v%d but got v%d",
+				ErrVersionMismatch,
+				FormatVersion,
+				version,
+			)
 		}
 	}
 
