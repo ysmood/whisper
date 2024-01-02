@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"syscall"
 
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
@@ -29,11 +28,13 @@ func getKey(keyFile string) []byte {
 func readPassphrase() string {
 	fmt.Fprint(os.Stderr, "Enter passphrase for private key: ")
 
-	if !term.IsTerminal(syscall.Stdin) {
+	fd := int(os.Stdin.Fd())
+
+	if !term.IsTerminal(fd) {
 		exit(ErrUnableReadPassphrase)
 	}
 
-	inputPass, err := term.ReadPassword(syscall.Stdin)
+	inputPass, err := term.ReadPassword(fd)
 	if err != nil {
 		exit(err)
 	}

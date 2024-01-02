@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	APIVersion    = "v0.3.3"
+	APIVersion    = "v0.3.4"
 	FormatVersion = byte(2)
 )
 
