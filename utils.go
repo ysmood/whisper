@@ -138,10 +138,6 @@ func getRemotePublicKey(p string) []byte {
 	return key
 }
 
-func pubKeyName(prv string) string {
-	return prv + ".pub"
-}
-
 func prvKeyName(pub string) string {
 	return strings.TrimSuffix(pub, ".pub")
 }

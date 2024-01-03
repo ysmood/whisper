@@ -167,10 +167,6 @@ func findPrivateKey(in io.ReadCloser) (string, io.ReadCloser) {
 }
 
 func getPublicKeys(paths []string) []whisper.PublicKey {
-	if len(paths) == 0 {
-		return []whisper.PublicKey{getPublicKey(pubKeyName(WHISPER_DEFAULT_KEY))}
-	}
-
 	list := []whisper.PublicKey{}
 	for _, p := range paths {
 		list = append(list, getPublicKey(p))
