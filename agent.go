@@ -2,8 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"time"
@@ -13,7 +13,7 @@ import (
 )
 
 func runAsAgent() {
-	log.Println("whisper agent started, version:", whisper.APIVersion)
+	fmt.Fprintln(os.Stderr, "whisper agent started, version:", whisper.APIVersion)
 
 	whisper.NewAgentServer().Serve(WHISPER_AGENT_ADDR)
 }
@@ -45,7 +45,7 @@ func startAgent() {
 		exit(err)
 	}
 
-	log.Println("wait for background whisper agent to start ...")
+	fmt.Fprintln(os.Stderr, "wait for background whisper agent to start ...")
 
 	for {
 		running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
@@ -60,7 +60,7 @@ func startAgent() {
 		time.Sleep(time.Millisecond * 100)
 	}
 
-	log.Println("background whisper agent started")
+	fmt.Fprintln(os.Stderr, "background whisper agent started")
 }
 
 func agentCheckPassphrase(prv whisper.PrivateKey) bool {
