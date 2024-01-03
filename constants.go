@@ -16,15 +16,7 @@ var SSH_DIR = func() string {
 	return filepath.Join(p, ".ssh")
 }()
 
-var WHISPER_DEFAULT_KEY = func() string {
-	key := os.Getenv("WHISPER_DEFAULT_KEY")
-
-	if key == "" {
-		key = filepath.Join(SSH_DIR, "id_ed25519")
-	}
-
-	return key
-}()
+var WHISPER_DEFAULT_KEY = os.Getenv("WHISPER_DEFAULT_KEY")
 
 var WHISPER_PASSPHRASE = os.Getenv("WHISPER_PASSPHRASE")
 

@@ -24,8 +24,9 @@ func main() { //nolint: funlen
 	agent := flags.Bool(AGENT_FLAG, false,
 		"Run as agent, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
 
-	privateKey := flags.String("p", "", "Private key path to decrypt data.\n"+
-		"If it's empty the env var WHISPER_DEFAULT_KEY or '"+WHISPER_DEFAULT_KEY+"' will be used.\n"+
+	privateKey := flags.String("p", WHISPER_DEFAULT_KEY, "Private key path to decrypt data.\n"+
+		"You can use env var WHISPER_DEFAULT_KEY to set the default key path.\n"+
+		"If it's empty a key in ~/.ssh will be auto selected.\n"+
 		"If it requires a passphrase, env var WHISPER_PASSPHRASE will be used or a password cli prompt will show up.")
 
 	signPublicKey := flags.String("s", "",
@@ -118,7 +119,7 @@ func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*wh
 		if decrypt {
 			location, in = findPrivateKey(in)
 		} else {
-			location = WHISPER_DEFAULT_KEY
+			location = filepath.Join(SSH_DIR, "id_ed25519")
 		}
 	}
 
