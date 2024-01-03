@@ -128,7 +128,7 @@ func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*wh
 	}
 
 	if !agentCheckPassphrase(private) {
-		private.Passphrase = readPassphrase()
+		private.Passphrase = readPassphrase(fmt.Sprintf("Please enter passphrase for private key %s: ", location))
 	}
 
 	return &private, in
