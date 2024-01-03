@@ -5,11 +5,13 @@ import (
 	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"io"
+
+	"golang.org/x/crypto/hkdf"
 )
 
 type Transparent struct{}
@@ -64,20 +66,27 @@ func (g *Gzip) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 type AES struct {
 	Key   []byte
+	Type  int
 	Guard int
 }
 
-func NewAES(key []byte, guard int) EncodeDecoder {
+// NewAES creates a new AES encoder/decoder.
+// The aesType must be 16, 24, or 32 to select.
+func NewAES(key []byte, aesType, guard int) EncodeDecoder {
 	if guard > aes.BlockSize {
 		panic("guard size can't be larger than aes.BlockSize")
 	}
 
-	return &AES{Key: key, Guard: guard}
+	return &AES{key, aesType, guard}
 }
 
 func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
-	hashedKey := md5.Sum(a.Key)
-	block, err := aes.NewCipher(hashedKey[:])
+	key, err := a.hdf()
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +119,12 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 var ErrAESDecode = errors.New("wrong secret or corrupted data")
 
 func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
-	hashedKey := md5.Sum(a.Key)
-	block, err := aes.NewCipher(hashedKey[:])
+	key, err := a.hdf()
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
@@ -139,4 +152,11 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 	}
 
 	return rc, nil
+}
+
+func (a *AES) hdf() ([]byte, error) {
+	hkdf := hkdf.New(sha256.New, a.Key, nil, nil)
+	key := make([]byte, a.Type)
+	_, err := io.ReadFull(hkdf, key)
+	return key, err
 }

@@ -15,7 +15,7 @@ func TestEncodings(t *testing.T) {
 
 	trans := &piper.Transparent{}
 	gzip := piper.NewGzip()
-	aes := piper.NewAES([]byte("123"), 0)
+	aes := piper.NewAES([]byte("123"), 16, 0)
 	base64 := piper.NewBase64()
 
 	buf := bytes.NewBuffer(nil)
@@ -61,18 +61,18 @@ func TestAESWrongSecret(t *testing.T) {
 
 	encrypted := bytes.NewBuffer(nil)
 
-	enc, err := piper.NewAES([]byte("a"), 4).Encoder(encrypted)
+	enc, err := piper.NewAES([]byte("a"), 16, 4).Encoder(encrypted)
 	g.E(err)
 
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	dec, err := piper.NewAES([]byte("b"), 4).Decoder(bytes.NewBuffer(encrypted.Bytes()))
+	dec, err := piper.NewAES([]byte("b"), 16, 4).Decoder(bytes.NewBuffer(encrypted.Bytes()))
 	g.Is(err, piper.ErrAESDecode)
 
 	g.Neq(g.Read(dec).String(), "ok")
 
-	dec, err = piper.NewAES([]byte("a"), 4).Decoder(bytes.NewBuffer(encrypted.Bytes()))
+	dec, err = piper.NewAES([]byte("a"), 16, 4).Decoder(bytes.NewBuffer(encrypted.Bytes()))
 	g.E(err)
 
 	g.Eq(g.Read(dec).String(), "ok")

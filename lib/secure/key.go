@@ -142,7 +142,7 @@ func IsAuthErr(err error) bool {
 	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
 }
 
-func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
+func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
 	private, err := FindPrvSharedKey(pub)
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { 
 			return nil, err
 		}
 
-		return EncryptAES(secret, aesKey, 0)
+		return EncryptAES(secret, aesKey, aesType, 0)
 
 	case ed25519.PublicKey:
 		xPrv := ed25519PrivateKeyToCurve25519(private.(ed25519.PrivateKey))
@@ -179,7 +179,7 @@ func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { 
 			return nil, err
 		}
 
-		return EncryptAES(secret, aesKey, 0)
+		return EncryptAES(secret, aesKey, aesType, 0)
 
 	case *rsa.PublicKey:
 		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, aesKey, nil)
@@ -189,7 +189,7 @@ func EncryptSharedSecret(aesKey []byte, pub crypto.PublicKey) ([]byte, error) { 
 	}
 }
 
-func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte, error) { //nolint: cyclop
+func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.PrivateKey) ([]byte, error) { //nolint: cyclop
 	public, err := FindPubSharedKey(prv)
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte,
 			return nil, err
 		}
 
-		return DecryptAES(secret, encryptedAESKey, 0)
+		return DecryptAES(secret, encryptedAESKey, aesType, 0)
 
 	case ed25519.PrivateKey:
 		xPrv := ed25519PrivateKeyToCurve25519(key)
@@ -226,7 +226,7 @@ func DecryptSharedSecret(encryptedAESKey []byte, prv crypto.PrivateKey) ([]byte,
 			return nil, err
 		}
 
-		return DecryptAES(secret, encryptedAESKey, 0)
+		return DecryptAES(secret, encryptedAESKey, aesType, 0)
 
 	case *rsa.PrivateKey:
 		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)

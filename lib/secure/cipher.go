@@ -45,6 +45,8 @@ import (
 // ...
 // "encrypted-data" is the encrypted data by the AES secret.
 type Cipher struct {
+	AESType int
+
 	prv crypto.PrivateKey
 
 	index int
@@ -55,7 +57,7 @@ type Cipher struct {
 // NewCipher to encrypt or decrypt data.
 // The index indicates which key in the key list is for the prv to decrypt the data.
 func NewCipher(prv crypto.PrivateKey, index int, pubs ...crypto.PublicKey) *Cipher {
-	return &Cipher{prv, index, pubs}
+	return &Cipher{16, prv, index, pubs}
 }
 
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
@@ -87,7 +89,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 		}
 	}
 
-	return piper.NewAES(aesKey, 2).Encoder(w)
+	return piper.NewAES(aesKey, c.AESType, 2).Encoder(w)
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
@@ -114,13 +116,13 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return piper.NewAES(aesKey, 2).Decoder(r)
+	return piper.NewAES(aesKey, c.AESType, 2).Decoder(r)
 }
 
 var ErrNotRecipient = fmt.Errorf("not a recipient")
 
 func (c *Cipher) EncodeAESKey(aesKey []byte, pub crypto.PublicKey) ([]byte, error) {
-	encryptedKey, err := EncryptSharedSecret(aesKey, pub)
+	encryptedKey, err := EncryptSharedSecret(aesKey, c.AESType, pub)
 	if err != nil {
 		return nil, err
 	}
@@ -129,5 +131,5 @@ func (c *Cipher) EncodeAESKey(aesKey []byte, pub crypto.PublicKey) ([]byte, erro
 }
 
 func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
-	return DecryptSharedSecret(encryptedKeys[c.index], c.prv)
+	return DecryptSharedSecret(encryptedKeys[c.index], c.AESType, c.prv)
 }

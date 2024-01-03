@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	APIVersion    = "v0.3.4"
-	FormatVersion = byte(2)
+	APIVersion    = "v0.3.5"
+	FormatVersion = byte(3)
 )
 
 type PrivateKey struct {

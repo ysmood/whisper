@@ -191,10 +191,10 @@ func TestSharedSecret(t *testing.T) {
 		pub01, err := secure.SSHPubKey(g.Read(file + ".pub").Bytes())
 		g.E(err)
 
-		encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
+		encrypted, err := secure.EncryptSharedSecret(aesKey, 16, pub01)
 		g.E(err)
 
-		decrypted, err := secure.DecryptSharedSecret(encrypted, prv01)
+		decrypted, err := secure.DecryptSharedSecret(encrypted, 16, prv01)
 		g.E(err)
 
 		g.Eq(decrypted, aesKey)

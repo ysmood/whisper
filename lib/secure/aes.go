@@ -7,10 +7,10 @@ import (
 	"github.com/ysmood/whisper/lib/piper"
 )
 
-func EncryptAES(key, data []byte, guard int) ([]byte, error) {
+func EncryptAES(key, data []byte, aesType, guard int) ([]byte, error) {
 	encrypted := bytes.NewBuffer(nil)
 
-	enc, err := piper.NewAES(key, guard).Encoder(encrypted)
+	enc, err := piper.NewAES(key, aesType, guard).Encoder(encrypted)
 	if err != nil {
 		return nil, err
 	}
@@ -23,8 +23,8 @@ func EncryptAES(key, data []byte, guard int) ([]byte, error) {
 	return encrypted.Bytes(), nil
 }
 
-func DecryptAES(key, data []byte, guard int) ([]byte, error) {
-	decrypted, err := piper.NewAES(key, guard).Decoder(bytes.NewReader(data))
+func DecryptAES(key, data []byte, aesType, guard int) ([]byte, error) {
+	decrypted, err := piper.NewAES(key, aesType, guard).Decoder(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
