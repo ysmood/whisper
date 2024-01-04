@@ -27,14 +27,16 @@ func main() { //nolint: funlen
 	privateKey := flags.String("p", WHISPER_DEFAULT_KEY, "Private key path to decrypt data.\n"+
 		"You can use env var WHISPER_DEFAULT_KEY to set the default key path.\n"+
 		"If it's empty a key in ~/.ssh will be auto selected.\n"+
-		"If it requires a passphrase, env var WHISPER_PASSPHRASE will be used or a password cli prompt will show up.")
+		"If it requires a passphrase, env var WHISPER_PASSPHRASE will be used or a password cli prompt will show up.\n"+
+		"The file path should always use / as the separator, even on Windows.")
 
 	signPublicKey := flags.String("s", "",
 		`To sign or verify the data this flag is required. Format is same as -e flag.`)
 
 	var publicKeys publicKeysFlag
 	flags.Var(&publicKeys, "e",
-		`Encrypt with the public key, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}".`)
+		`Encrypt with the public key, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}".`+"\n"+
+			"The file path should always use / as the separator, even on Windows.")
 
 	enableBase64 := flags.Bool("b", false, "Encoding or decoding data as base64 string.")
 

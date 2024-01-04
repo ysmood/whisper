@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	whisper "github.com/ysmood/whisper/lib"
@@ -19,6 +20,10 @@ func exit(err error) {
 }
 
 func getKey(keyFile string) []byte {
+	if runtime.GOOS == "windows" {
+		keyFile = filepath.FromSlash(keyFile)
+	}
+
 	b, err := os.ReadFile(keyFile)
 	if err != nil {
 		exit(err)
