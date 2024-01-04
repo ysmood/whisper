@@ -21,8 +21,14 @@ func main() { //nolint: funlen
 
 	clearCache := flags.Bool("clear-cache", false, "Clear the cache.")
 
-	agent := flags.Bool(AGENT_FLAG, false,
+	backgroundAgent := flags.Bool("agent", false, "Launch the background agent if it's not running.")
+
+	asAgent := flags.Bool(AS_AGENT_FLAG, false,
 		"Run as agent, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
+
+	if WHISPER_AGENT_ADDR == "" {
+		WHISPER_AGENT_ADDR = WHISPER_AGENT_ADDR_DEFAULT
+	}
 
 	privateKey := flags.String("p", WHISPER_DEFAULT_KEY, "Private key path to decrypt data.\n"+
 		"You can use env var WHISPER_DEFAULT_KEY to set the default key path.\n"+
@@ -65,12 +71,14 @@ func main() { //nolint: funlen
 		return
 	}
 
-	if *agent {
+	if *asAgent {
 		runAsAgent()
 		return
 	}
 
-	startAgent()
+	if ensureAgent(*backgroundAgent) {
+		return
+	}
 
 	decrypt := len(publicKeys) == 0
 

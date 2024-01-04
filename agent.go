@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"time"
@@ -13,27 +14,47 @@ import (
 )
 
 func runAsAgent() {
-	fmt.Fprintln(os.Stderr, "whisper agent started, version:", whisper.APIVersion)
+	fmt.Fprintf(os.Stderr, "whisper agent started on %s, version: %s\n", WHISPER_AGENT_ADDR, whisper.APIVersion)
 
 	whisper.NewAgentServer().Serve(WHISPER_AGENT_ADDR)
 }
 
-func startAgent() {
+func ensureAgent(background bool) bool {
 	running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
 	if err != nil {
 		exit(err)
 	}
 
 	if running {
-		return
+		return false
 	}
 
+	if background {
+		launchBackgroundAgent()
+		return true
+	}
+
+	s := whisper.NewAgentServer()
+
+	l, err := net.Listen("tcp4", ":0")
+	if err != nil {
+		exit(err)
+	}
+
+	go s.Listen(l)
+
+	WHISPER_AGENT_ADDR = l.Addr().String()
+
+	return false
+}
+
+func launchBackgroundAgent() {
 	exePath, err := os.Executable()
 	if err != nil {
 		exit(err)
 	}
 
-	cmd := exec.Command(exePath, "-"+AGENT_FLAG)
+	cmd := exec.Command(exePath, "-"+AS_AGENT_FLAG)
 
 	err = cmd.Start()
 	if err != nil {
