@@ -26,7 +26,7 @@ func getKey(keyFile string) []byte {
 
 	b, err := os.ReadFile(keyFile)
 	if err != nil {
-		exit(err)
+		exit(fmt.Errorf("%w can't find the key: %s", err, keyFile))
 	}
 	return b
 }

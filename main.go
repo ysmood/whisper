@@ -117,12 +117,12 @@ func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*wh
 		return nil, in
 	}
 
+	if location == "" && decrypt {
+		location, in = findPrivateKey(in)
+	}
+
 	if location == "" {
-		if decrypt {
-			location, in = findPrivateKey(in)
-		} else {
-			location = filepath.Join(SSH_DIR, "id_ed25519")
-		}
+		location = filepath.Join(SSH_DIR, "id_ed25519")
 	}
 
 	private := whisper.PrivateKey{
