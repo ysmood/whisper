@@ -1,0 +1,14 @@
+{
+  "Gzip": true,
+  "Sign": true,
+  "LongPubKeyHash": false,
+  "Sender": {
+    "Data": null,
+    "ID": "test",
+    "Selector": "abc"
+  },
+  "PubKeyHashList": {
+    "\u0013\ufffd\ufffd\ufffd": 0,
+    "\ufffd!\ufffd\u0010": 1
+  }
+}
