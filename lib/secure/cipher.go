@@ -119,7 +119,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 	return piper.NewAES(aesKey, c.AESType, 2).Decoder(r)
 }
 
-var ErrNotRecipient = fmt.Errorf("not a recipient")
+var ErrNotRecipient = fmt.Errorf("not a recipient, the data is not encrypted for your public key")
 
 func (c *Cipher) EncodeAESKey(aesKey []byte, pub crypto.PublicKey) ([]byte, error) {
 	encryptedKey, err := EncryptSharedSecret(aesKey, c.AESType, pub)

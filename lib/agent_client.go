@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
@@ -40,7 +41,7 @@ func CallAgent(addr string, req AgentReq, in io.Reader, out io.Writer) error {
 	eg.Go(func() error {
 		_, err = io.Copy(out, stream)
 		if err != nil {
-			if err.Error() == secure.ErrSignNotMatch.Error() {
+			if strings.Contains(err.Error(), secure.ErrSignNotMatch.Error()) {
 				err = secure.ErrSignNotMatch
 			}
 

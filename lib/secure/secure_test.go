@@ -172,12 +172,12 @@ func TestWrongPassphrase(t *testing.T) {
 	g := got.T(t)
 
 	_, err := secure.SSHPrvKey(g.Read("test_data/id_ecdsa").Bytes(), "wrong")
-	g.Eq(err, x509.IncorrectPasswordError)
+	g.Is(err, x509.IncorrectPasswordError)
 	g.True(secure.IsAuthErr(err))
 
 	_, err = secure.SSHPrvKey(g.Read("test_data/id_ecdsa").Bytes(), "")
 	e := &ssh.PassphraseMissingError{}
-	g.Eq(err.Error(), e.Error())
+	g.Has(err.Error(), e.Error())
 }
 
 func TestSharedSecret(t *testing.T) {

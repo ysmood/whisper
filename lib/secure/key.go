@@ -54,7 +54,7 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 
 		key, _, _, publicKey, err = ssh.ParseAuthorizedKey(publicKey)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
 
 		switch eKey := key.(ssh.CryptoPublicKey).CryptoPublicKey().(type) {
@@ -92,7 +92,7 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyData, []byte(passphrase))
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
 
 	var prv crypto.PrivateKey
