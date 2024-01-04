@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	whisper "github.com/ysmood/whisper/lib"
@@ -66,7 +67,12 @@ func getOutput(file string) io.WriteCloser {
 		return piper.NopCloser(os.Stdout)
 	}
 
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0o600)
+	err := os.MkdirAll(filepath.Dir(file), 0o700)
+	if err != nil {
+		exit(err)
+	}
+
+	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		exit(err)
 	}
