@@ -220,33 +220,6 @@ func (a *AgentServer) res(s io.Writer, res AgentRes) error {
 	return err
 }
 
-func agentReq(addr string, req AgentReq) (*AgentRes, *piper.Ender, error) {
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	e := piper.NewEnder(conn)
-
-	b, err := encode(req)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = e.Write(byframe.Encode(b))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	b, err = byframe.NewScanner(e).Next()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	res, err := decode[AgentRes](b)
-	return &res, e, err
-}
-
 type privateKeyCache struct {
 	lock  sync.Mutex
 	cache map[[md5.Size]byte]string

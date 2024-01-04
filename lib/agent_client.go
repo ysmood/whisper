@@ -3,7 +3,10 @@ package whisper
 import (
 	"errors"
 	"io"
+	"net"
 
+	"github.com/ysmood/byframe/v4"
+	"github.com/ysmood/whisper/lib/piper"
 	"github.com/ysmood/whisper/lib/secure"
 	"golang.org/x/sync/errgroup"
 )
@@ -83,4 +86,31 @@ func IsAgentRunning(addr, version string) (bool, error) {
 func ClearCache(addr string) error {
 	_, _, err := agentReq(addr, AgentReq{ClearCache: true})
 	return err
+}
+
+func agentReq(addr string, req AgentReq) (*AgentRes, *piper.Ender, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	e := piper.NewEnder(conn)
+
+	b, err := encode(req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = e.Write(byframe.Encode(b))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	b, err = byframe.NewScanner(e).Next()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res, err := decode[AgentRes](b)
+	return &res, e, err
 }
