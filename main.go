@@ -51,7 +51,7 @@ func main() { //nolint: funlen
 
 	compressLevel := flags.Int("c", gzip.NoCompression, "Gzip compression level.")
 
-	inputFile := flags.String("i", "", "Input encryption/decryption from the specified file.")
+	inputFile := flags.String("i", "", "Input encryption/decryption from the specified file or https url.")
 	outputFile := flags.String("o", "", "Output encryption/decryption to the specified file.")
 
 	flags.Usage = func() {

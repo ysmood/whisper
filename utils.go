@@ -59,6 +59,15 @@ func getInput(path, defaultPath string) io.ReadCloser {
 		return os.Stdin
 	}
 
+	if strings.HasPrefix(path, "https://") {
+		res, err := http.Get(path) //nolint:noctx
+		if err != nil {
+			exit(err)
+		}
+
+		return res.Body
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		exit(err)
