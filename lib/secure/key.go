@@ -139,10 +139,10 @@ func Belongs(pub, prv []byte, passphrase string) (bool, error) {
 
 func IsAuthErr(err error) bool {
 	missingErr := &ssh.PassphraseMissingError{}
-	return errors.Is(err, x509.IncorrectPasswordError) || err.Error() == missingErr.Error()
+	return errors.Is(err, x509.IncorrectPasswordError) || errors.As(err, &missingErr)
 }
 
-func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]byte, error) { //nolint: cyclop
+func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]byte, error) {
 	private, err := FindPrvSharedKey(pub)
 	if err != nil {
 		return nil, err
@@ -189,7 +189,7 @@ func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]by
 	}
 }
 
-func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.PrivateKey) ([]byte, error) { //nolint: cyclop
+func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.PrivateKey) ([]byte, error) {
 	public, err := FindPubSharedKey(prv)
 	if err != nil {
 		return nil, err

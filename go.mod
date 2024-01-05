@@ -6,7 +6,7 @@ toolchain go1.21.4
 
 require (
 	github.com/ysmood/byframe/v4 v4.0.0
-	github.com/ysmood/got v0.39.2
+	github.com/ysmood/got v0.39.3
 	golang.org/x/term v0.15.0
 )
 

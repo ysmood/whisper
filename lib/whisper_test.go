@@ -3,6 +3,7 @@ package whisper_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -41,7 +42,7 @@ func TestBasic(t *testing.T) {
 	})
 	g.E(err)
 
-	g.Len(encrypted, 110)
+	g.Len(encrypted, 148)
 
 	decrypted01, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	g.E(err)
@@ -127,7 +128,7 @@ func TestMeta(t *testing.T) {
 
 	g.E(conf.EncodeMeta(buf))
 
-	meta, err := whisper.DecodeMeta(buf)
+	meta, _, err := whisper.PeakMeta(io.NopCloser(buf))
 	g.E(err)
 
 	g.Snapshot("meta", meta)

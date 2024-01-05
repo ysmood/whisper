@@ -24,7 +24,7 @@ func TestAgentVersionMatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.NewAgentClient(addr).IsAgentRunning(whisper.APIVersion)
+	r, err := whisper.NewAgentClient(addr).IsServerRunning(whisper.APIVersion)
 	g.E(err)
 	g.True(r)
 }
@@ -41,7 +41,7 @@ func TestAgentVersionMismatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.NewAgentClient(addr).IsAgentRunning("v0.0.0")
+	r, err := whisper.NewAgentClient(addr).IsServerRunning("v0.0.0")
 	g.E(err)
 	g.False(r)
 
@@ -72,9 +72,7 @@ func TestAgentEncodeDecode(t *testing.T) {
 	in := bytes.NewBufferString("hello")
 	encoded := bytes.NewBuffer(nil)
 
-	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
-		Config: conf,
-	}, in, encoded)
+	err = whisper.NewAgentClient(addr).Whisper(conf, in, encoded)
 	g.E(err)
 
 	conf = whisper.Config{
@@ -84,10 +82,7 @@ func TestAgentEncodeDecode(t *testing.T) {
 	}
 
 	decoded := bytes.NewBuffer(nil)
-	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
-		Decrypt: true,
-		Config:  conf,
-	}, encoded, decoded)
+	err = whisper.NewAgentClient(addr).Whisper(conf, encoded, decoded)
 	g.E(err)
 
 	g.Eq(decoded.String(), "hello")
@@ -116,9 +111,7 @@ func TestAgentSignVerifyErr(t *testing.T) {
 	in := bytes.NewBufferString("hello")
 	encoded := bytes.NewBuffer(nil)
 
-	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
-		Config: conf,
-	}, in, encoded)
+	err = whisper.NewAgentClient(addr).Whisper(conf, in, encoded)
 	g.E(err)
 
 	conf = whisper.Config{
@@ -126,10 +119,7 @@ func TestAgentSignVerifyErr(t *testing.T) {
 	}
 
 	decoded := bytes.NewBuffer(nil)
-	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
-		Decrypt: true,
-		Config:  conf,
-	}, encoded, decoded)
+	err = whisper.NewAgentClient(addr).Whisper(conf, encoded, decoded)
 	g.Is(err, secure.ErrSignNotMatch)
 
 	g.Eq(decoded.String(), "hello")

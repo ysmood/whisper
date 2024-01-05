@@ -14,17 +14,23 @@ import (
 
 var ErrWrongPublicKey = errors.New("the public key from option -a doesn't belong to the private key")
 
-type AgentClient struct {
+type AgentClient interface {
+	Whisper(conf Config, in io.Reader, out io.Writer) error
+	IsPassphraseRight(prv PrivateKey) (bool, error)
+	IsServerRunning(version string) (bool, error)
+	ClearCache() error
+}
+
+type agentClient struct {
 	Addr string
 }
 
-func NewAgentClient(addr string) *AgentClient {
-	return &AgentClient{Addr: addr}
+func NewAgentClient(addr string) AgentClient {
+	return &agentClient{Addr: addr}
 }
 
-// Return true if the passphrase is correct.
-func (c *AgentClient) CallAgent(req AgentReq, in io.Reader, out io.Writer) error {
-	res, stream, err := c.agentReq(req)
+func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
+	res, stream, err := c.agentReq(AgentReq{Config: conf})
 	if err != nil {
 		return err
 	}
@@ -62,7 +68,7 @@ func (c *AgentClient) CallAgent(req AgentReq, in io.Reader, out io.Writer) error
 	return eg.Wait()
 }
 
-func (c *AgentClient) IsPassphraseRight(prv PrivateKey) (bool, error) {
+func (c *agentClient) IsPassphraseRight(prv PrivateKey) (bool, error) {
 	res, stream, err := c.agentReq(AgentReq{CheckPassphrase: true, Config: Config{Private: &prv}})
 	if err != nil {
 		if stream == nil {
@@ -77,7 +83,7 @@ func (c *AgentClient) IsPassphraseRight(prv PrivateKey) (bool, error) {
 	return res.PassphraseRight, nil
 }
 
-func (c *AgentClient) IsAgentRunning(version string) (bool, error) {
+func (c *agentClient) IsServerRunning(version string) (bool, error) {
 	res, stream, err := c.agentReq(AgentReq{Version: version})
 	if err != nil {
 		if stream == nil {
@@ -92,12 +98,12 @@ func (c *AgentClient) IsAgentRunning(version string) (bool, error) {
 	return res.Running, nil
 }
 
-func (c *AgentClient) ClearCache() error {
+func (c *agentClient) ClearCache() error {
 	_, _, err := c.agentReq(AgentReq{ClearCache: true})
 	return err
 }
 
-func (c *AgentClient) agentReq(req AgentReq) (*AgentRes, *piper.Ender, error) {
+func (c *agentClient) agentReq(req AgentReq) (*AgentRes, *piper.Ender, error) {
 	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return nil, nil, err

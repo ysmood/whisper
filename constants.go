@@ -2,17 +2,7 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 )
-
-var SSH_DIR = func() string {
-	p, err := os.UserHomeDir()
-	if err != nil {
-		exit(err)
-	}
-
-	return filepath.Join(p, ".ssh")
-}()
 
 var WHISPER_DEFAULT_KEY = os.Getenv("WHISPER_DEFAULT_KEY")
 

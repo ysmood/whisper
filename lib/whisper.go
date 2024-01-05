@@ -1,7 +1,6 @@
 package whisper
 
 import (
-	"bytes"
 	"compress/gzip"
 	"errors"
 	"fmt"
@@ -75,10 +74,17 @@ type Config struct {
 	// For signature checking and meta data prefixing.
 	Sign *PublicKey
 
-	// For data encryption of different recipients
+	// For data encryption of different recipients.
+	// If the list is empty, it will be a decryption process.
 	Public []PublicKey
 }
 
+func (c Config) IsDecryption() bool {
+	return len(c.Public) == 0
+}
+
+// Whisper is a data encryption and decryption file format.
+// The whisper file extension is ".wsp".
 type Whisper struct {
 	conf Config
 }
@@ -86,13 +92,13 @@ type Whisper struct {
 // New encoder and decoder pair.
 // The encoding process:
 //
-//	data -> gzip -> cipher -> sign -> meta
+//	data -> gzip -> cipher -> sign -> meta -> base64
 //
-// The sign, gzip are optional.
+// The sign, gzip, base64 are optional.
 //
 // Decoding is the reverse as the encoding.
 // It will still decode the whole data even the signature check fails, it will return [secure.ErrSignNotMatch] error.
-func New(conf Config) piper.EncodeDecoder {
+func New(conf Config) *Whisper {
 	return &Whisper{conf}
 }
 
@@ -100,7 +106,8 @@ var ErrNoPrivateKey = errors.New("no private key")
 
 var ErrPubPrvNotMatch = errors.New("public and private key not match")
 
-func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) { //nolint: cyclop
+// Encoder encrypt data stream to the out as whisper file format.
+func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 	pipeline := []piper.EncodeDecoder{}
 
 	// gzip
@@ -160,10 +167,10 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) { //nolint: cyc
 	return piper.Join(pipeline...).Encoder(out)
 }
 
+// Decoder decrypt data stream from the in as whisper file format.
 func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 	pipeline := []piper.EncodeDecoder{}
 
-	// meta
 	meta, err := DecodeMeta(in)
 	if err != nil {
 		return nil, err
@@ -213,52 +220,4 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 	}
 
 	return piper.Join(pipeline...).Decoder(in)
-}
-
-func EncodeString(data string, conf Config) (string, error) {
-	bin, err := Encode([]byte(data), conf)
-	return string(bin), err
-}
-
-func DecodeString(data string, conf Config) (string, error) {
-	bin, err := Decode([]byte(data), conf)
-	return string(bin), err
-}
-
-func Encode(data []byte, conf Config) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-
-	wp := New(conf)
-
-	w, err := wp.Encoder(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		return nil, err
-	}
-
-	err = w.Close()
-
-	return buf.Bytes(), err
-}
-
-func Decode(data []byte, conf Config) ([]byte, error) {
-	wp := New(conf)
-
-	r, err := wp.Decoder(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-
-	bin, err := io.ReadAll(r)
-	if err != nil {
-		return bin, err
-	}
-
-	err = r.Close()
-
-	return bin, err
 }

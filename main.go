@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/base64"
 	"errors"
@@ -22,12 +21,13 @@ func main() { //nolint: funlen
 
 	clearCache := flags.Bool("clear-cache", false, "Clear the cache.")
 
-	backgroundAgent := flags.Bool("agent", false, "Launch the background agent if it's not running.")
+	launchAgent := flags.Bool("agent", false, "Launch the background agent server if it's not running.")
 
-	asAgent := flags.Bool(AS_AGENT_FLAG, false,
-		"Run as agent, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
+	asAgentServer := flags.Bool(AS_AGENT_FLAG, false,
+		"Run as agent server, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
 
-	addPassphrase := flags.String("add", "", "Add the key's passphrase to the agent cache.")
+	addPassphrase := flags.String("add", "", "Add the key's passphrase to the agent cache.\n"+
+		"It will also launch the agent server like -agent flag")
 
 	if WHISPER_AGENT_ADDR == "" {
 		WHISPER_AGENT_ADDR = WHISPER_AGENT_ADDR_DEFAULT
@@ -74,8 +74,8 @@ func main() { //nolint: funlen
 		return
 	}
 
-	if *asAgent {
-		runAsAgent()
+	if *asAgentServer {
+		runAsAgentServer()
 		return
 	}
 
@@ -84,7 +84,8 @@ func main() { //nolint: funlen
 		return
 	}
 
-	if ensureAgent(*backgroundAgent) {
+	if *launchAgent {
+		launchAgentServer()
 		return
 	}
 
@@ -94,7 +95,11 @@ func main() { //nolint: funlen
 	output := getOutput(*outputFile)
 
 	if *enableBase64 {
-		input, output = wrapBase64(decrypt, input, output)
+		if decrypt {
+			input = &piper.WrapReadCloser{Reader: base64.NewDecoder(base64.StdEncoding, input), Closer: input}
+		} else {
+			output = base64.NewEncoder(base64.StdEncoding, output)
+		}
 	}
 
 	var meta *whisper.Meta
@@ -111,20 +116,35 @@ func main() { //nolint: funlen
 		Public:    getPublicKeys(publicKeys),
 	}
 
-	agentWhisper(decrypt, conf, input, output)
+	if isAgentServerRunning() {
+		agentWhisper(conf, input, output)
+		return
+	}
+
+	err = whisper.New(conf).Handle(input, output)
+	if err != nil {
+		exit(err)
+	}
 }
 
-func getSign(flag string) *whisper.PublicKey {
-	var sign *whisper.PublicKey
-	if flag != "" {
-		key := getPublicKey(flag)
-		sign = &key
-
-		if p, remote := extractRemotePublicKey(flag); remote {
-			meta := whisper.PublicKeyFromMeta(p)
-			sign.ID = meta.ID
-			sign.Selector = meta.Selector
+func getMeta(input io.ReadCloser) (*whisper.Meta, io.ReadCloser) {
+	meta, input, err := whisper.PeakMeta(input)
+	if err != nil {
+		if isBase64(input) {
+			exit(fmt.Errorf("the input is base64 encoded, you might want to add -b flag to decrypt: %w", err))
 		}
+
+		exit(err)
+	}
+
+	return meta, input
+}
+
+func getSign(path string) *whisper.PublicKey {
+	var sign *whisper.PublicKey
+	if path != "" {
+		key := fetchPublicKey(path)
+		sign = &key
 	}
 	return sign
 }
@@ -132,23 +152,6 @@ func getSign(flag string) *whisper.PublicKey {
 var ErrUnableReadPassphrase = errors.New(
 	"stdin is used for piping, can't read passphrase from it, please use the -i flag for the input file",
 )
-
-func getMeta(in io.ReadCloser) (*whisper.Meta, io.ReadCloser) {
-	read := bytes.NewBuffer(nil)
-	tee := io.TeeReader(in, read)
-	in = &piper.WrapReadCloser{Reader: io.MultiReader(read, in), Closer: in}
-
-	meta, err := whisper.DecodeMeta(tee)
-	if err != nil {
-		if isBase64(in) {
-			exit(fmt.Errorf("the input is base64 encoded, you might want to add -b flag to decrypt: %w", err))
-		}
-
-		exit(err)
-	}
-
-	return meta, in
-}
 
 func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *whisper.PrivateKey {
 	if !decrypt && !sign {
@@ -160,16 +163,41 @@ func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *w
 	}
 
 	if location == "" {
-		location = filepath.Join(SSH_DIR, "id_ed25519")
+		dir, err := whisper.SSHDir()
+		if err != nil {
+			exit(err)
+		}
+
+		location = filepath.Join(dir, "id_ed25519")
+	}
+
+	key, err := whisper.ReadKey(location)
+	if err != nil {
+		exit(err)
 	}
 
 	private := whisper.PrivateKey{
-		Data:       getKey(location),
+		Data:       key,
 		Passphrase: WHISPER_PASSPHRASE,
 	}
 
-	if !agentCheckPassphrase(private) {
-		private.Passphrase = readPassphrase(location)
+	return ensurePassphrase(private, location)
+}
+
+func ensurePassphrase(private whisper.PrivateKey, location string) *whisper.PrivateKey {
+	if isAgentServerRunning() {
+		if !agentCheckPassphrase(private) {
+			private.Passphrase = readPassphrase(location)
+		}
+	} else {
+		right, err := whisper.IsPassphraseRight(private)
+		if err != nil {
+			exit(err)
+		}
+
+		if !right {
+			private.Passphrase = readPassphrase(location)
+		}
 	}
 
 	return &private
@@ -178,20 +206,9 @@ func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *w
 // Parse the input file meta and find out which private key to use.
 // It will search the files in ~/.ssh folder.
 func findPrivateKey(meta *whisper.Meta) string {
-	pubKeys, err := filepath.Glob(SSH_DIR + "/*.pub")
-	if err != nil {
-		exit(err)
-	}
-
-	for _, p := range pubKeys {
-		has, err := meta.HasPubKey(whisper.PublicKey{Data: getKey(p)})
-		if err != nil {
-			exit(err)
-		}
-
-		if has {
-			return prvKeyName(p)
-		}
+	p, err := meta.FindSSHPrivateKey()
+	if err == nil {
+		return p
 	}
 
 	return WHISPER_DEFAULT_KEY
@@ -200,34 +217,29 @@ func findPrivateKey(meta *whisper.Meta) string {
 func getPublicKeys(paths []string) []whisper.PublicKey {
 	list := []whisper.PublicKey{}
 	for _, p := range paths {
-		list = append(list, getPublicKey(p))
+		list = append(list, fetchPublicKey(p))
 	}
 	return list
 }
 
-func wrapBase64(decrypt bool, in io.ReadCloser, out io.WriteCloser) (io.ReadCloser, io.WriteCloser) {
-	enc := piper.NewBase64()
-	var err error
-
-	if decrypt {
-		in, err = enc.Decoder(in)
-		if err != nil {
-			exit(err)
-		}
-	} else {
-		out, err = enc.Encoder(out)
-		if err != nil {
-			exit(err)
-		}
+func fetchPublicKey(location string) whisper.PublicKey {
+	loc := location
+	if p := getCache(location); p != "" {
+		loc = p
 	}
 
-	return in, out
-}
+	key, err := whisper.FetchPublicKey(loc)
+	if err != nil {
+		exit(fmt.Errorf("failed to fetch public key: %w", err))
+	}
 
-func isBase64(in io.Reader) bool {
-	dec := base64.NewDecoder(base64.StdEncoding, in)
-	buf := bytes.NewBuffer(nil)
+	cache(location, key.Data)
 
-	_, err := io.Copy(buf, dec)
-	return err == nil
+	if p, remote := whisper.ExtractRemotePublicKey(location); remote {
+		meta := whisper.PublicKeyFromMeta(p)
+		key.ID = meta.ID
+		key.Selector = meta.Selector
+	}
+
+	return *key
 }

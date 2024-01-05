@@ -7,7 +7,7 @@
     "ID": "test",
     "Selector": "abc"
   },
-  "PubKeyHashList": {
+  "Recipients": {
     "\u0013\ufffd\ufffd\ufffd": 0,
     "\ufffd!\ufffd\u0010": 1
   }

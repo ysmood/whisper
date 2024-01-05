@@ -4,8 +4,8 @@ github.com/ysmood/byframe/v4 v4.0.0 h1:ts3fNYjGSo83GRwb9M+z/YbzUYQSBruHPaE73962L
 github.com/ysmood/byframe/v4 v4.0.0/go.mod h1:hwg4L+koyIO2N72pWBjGaX3TkyDMokjiN18AC5RAviQ=
 github.com/ysmood/gop v0.2.0 h1:+tFrG0TWPxT6p9ZaZs+VY+opCvHU8/3Fk6BaNv6kqKg=
 github.com/ysmood/gop v0.2.0/go.mod h1:rr5z2z27oGEbyB787hpEcx4ab8cCiPnKxn0SUHt6xzk=
-github.com/ysmood/got v0.39.2 h1:2vkKSJaTPDzmwK5+4rlFFsKrUQLOUZh3zZTgBe38+rk=
-github.com/ysmood/got v0.39.2/go.mod h1:W7DdpuX6skL3NszLmAsC5hT7JAhuLZhByVzHTq874Qg=
+github.com/ysmood/got v0.39.3 h1:FU+S0qLW3OJrdsV8OztQJngv/bOb3kriA05L+tFKVPA=
+github.com/ysmood/got v0.39.3/go.mod h1:W7DdpuX6skL3NszLmAsC5hT7JAhuLZhByVzHTq874Qg=
 golang.org/x/crypto v0.16.0 h1:mMMrFzRSCF0GvB7Ne27XVtVAaXLrPmgPC7/v0tkwHaY=
 golang.org/x/crypto v0.16.0/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
 golang.org/x/sync v0.5.0 h1:60k92dhOjHxJkrqnwsfl8KuaHbn/5dl0lUPUklKo3qE=

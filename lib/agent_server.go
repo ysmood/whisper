@@ -11,12 +11,10 @@ import (
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
-	"github.com/ysmood/whisper/lib/secure"
 )
 
 type AgentReq struct {
 	Version         string
-	Decrypt         bool
 	CheckPassphrase bool
 	ClearCache      bool
 
@@ -141,18 +139,14 @@ func (a *AgentServer) handleClearCache(s io.ReadWriteCloser) error {
 }
 
 func (a *AgentServer) handleCheckPassphrase(s io.ReadWriteCloser, prv PrivateKey) error {
-	_, err := secure.SSHPrvKey(prv.Data, prv.Passphrase)
+	right, err := IsPassphraseRight(prv)
 	if err != nil {
-		if secure.IsAuthErr(err) {
-			return a.res(s, AgentRes{})
-		}
-
 		return err
 	}
 
 	a.cachePrivate(prv)
 
-	return a.res(s, AgentRes{PassphraseRight: true})
+	return a.res(s, AgentRes{PassphraseRight: right})
 }
 
 func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
@@ -167,7 +161,7 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 		return err
 	}
 
-	if req.Decrypt {
+	if req.Config.IsDecryption() {
 		r, err := wsp.Decoder(io.NopCloser(s))
 		if err != nil {
 			return err

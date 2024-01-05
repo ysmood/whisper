@@ -67,12 +67,15 @@ type Meta struct {
 	Sign           bool
 	LongPubKeyHash bool
 
-	Sender         *PublicKey
-	PubKeyHashList map[string]int
+	Sender *PublicKey
+
+	// The key is the hash of the recipient's public key, value is the index of the recipient in the key list.
+	Recipients map[string]int
 }
 
-func DecodeMeta(in io.Reader) (*Meta, error) { //nolint: funlen
-	meta := Meta{PubKeyHashList: map[string]int{}}
+// DecodeMeta decodes the meta from the whisper file.
+func DecodeMeta(in io.Reader) (*Meta, error) {
+	meta := Meta{Recipients: map[string]int{}}
 	scanner := byframe.NewScanner(in)
 	oneByte := make([]byte, 1)
 
@@ -138,7 +141,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) { //nolint: funlen
 				return nil, err
 			}
 
-			meta.PubKeyHashList[string(key)] = i
+			meta.Recipients[string(key)] = i
 		}
 	}
 
@@ -161,7 +164,7 @@ func (m Meta) GetIndex(p PrivateKey) (int, error) {
 	}
 
 	h := secure.PublicKeyHashByPrivateKey(key)[:m.HashSize()]
-	if i, has := m.PubKeyHashList[string(h)]; has {
+	if i, has := m.Recipients[string(h)]; has {
 		return i, nil
 	}
 
@@ -181,7 +184,7 @@ func (m Meta) HasPubKey(p PublicKey) (bool, error) {
 
 	h := secure.PublicKeyHash(pub)[:m.HashSize()]
 
-	_, has := m.PubKeyHashList[string(h)]
+	_, has := m.Recipients[string(h)]
 	return has, nil
 }
 

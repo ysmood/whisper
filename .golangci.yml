@@ -35,8 +35,13 @@ linters:
     - nosnakecase
     - scopelint
 
-gocyclo:
-  min-complexity: 15
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  cyclop:
+    max-complexity: 15
+  funlen:
+    lines: 100
 
 issues:
   exclude-use-default: false

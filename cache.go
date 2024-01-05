@@ -41,16 +41,11 @@ func cache(key string, data []byte) {
 	}
 }
 
-func getCache(key string) ([]byte, bool) {
-	// Read the data from the cache file
-	data, err := os.ReadFile(cacheFilePath(key))
-	if err != nil {
-		if os.IsNotExist(err) {
-			// If the file doesn't exist, return nil and false
-			return nil, false
-		}
-		exit(err)
+func getCache(key string) string {
+	p := cacheFilePath(key)
+	if _, err := os.Stat(p); err != nil {
+		return ""
 	}
 
-	return data, true
+	return p
 }

@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
-	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
 	"golang.org/x/term"
 )
@@ -17,18 +17,6 @@ import (
 func exit(err error) {
 	fmt.Fprintln(os.Stderr, "Error:", err.Error())
 	os.Exit(1)
-}
-
-func getKey(keyFile string) []byte {
-	if runtime.GOOS == "windows" {
-		keyFile = filepath.FromSlash(keyFile)
-	}
-
-	b, err := os.ReadFile(keyFile)
-	if err != nil {
-		exit(fmt.Errorf("%w can't find the key: %s", err, keyFile))
-	}
-	return b
 }
 
 func readPassphrase(location string) string {
@@ -93,75 +81,6 @@ func getOutput(file string) io.WriteCloser {
 	return f
 }
 
-func extractRemotePublicKey(p string) (string, bool) {
-	if strings.HasPrefix(p, "@") {
-		return p[1:], true
-	}
-
-	return p, false
-}
-
-func extractPublicKeySelector(p string) (string, string) {
-	sel := whisper.PublicKeyFromMeta(strings.TrimPrefix(p, "https://")).Selector
-	if sel == "" {
-		return p, ""
-	}
-	return p[:len(p)-len(sel)-1], sel
-}
-
-func toPublicKeyURL(p string) string {
-	if strings.HasPrefix(p, "https://") {
-		return p
-	}
-
-	return fmt.Sprintf("https://github.com/%s.keys", p)
-}
-
-func getPublicKey(p string) whisper.PublicKey {
-	p, remote := extractRemotePublicKey(p)
-	p, sel := extractPublicKeySelector(p)
-
-	var key []byte
-	if remote {
-		key = getRemotePublicKey(p)
-	} else {
-		key = getKey(p)
-	}
-
-	if len(key) == 0 {
-		exit(fmt.Errorf("%w: %s", whisper.ErrPubKeyNotFound, p))
-	}
-
-	return whisper.PublicKey{Data: key, ID: p, Selector: sel}
-}
-
-func getRemotePublicKey(p string) []byte {
-	u := toPublicKeyURL(p)
-
-	if b, has := getCache(u); has {
-		return b
-	}
-
-	res, err := http.Get(u) //nolint:noctx
-	if err != nil {
-		exit(err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	key, err := io.ReadAll(res.Body)
-	if err != nil {
-		exit(err)
-	}
-
-	cache(u, key)
-
-	return key
-}
-
-func prvKeyName(pub string) string {
-	return strings.TrimSuffix(pub, ".pub")
-}
-
 type publicKeysFlag []string
 
 func (i *publicKeysFlag) String() string {
@@ -171,4 +90,12 @@ func (i *publicKeysFlag) String() string {
 func (i *publicKeysFlag) Set(value string) error {
 	*i = append(*i, value)
 	return nil
+}
+
+func isBase64(in io.Reader) bool {
+	dec := base64.NewDecoder(base64.StdEncoding, in)
+	buf := bytes.NewBuffer(nil)
+
+	_, err := io.Copy(buf, dec)
+	return err == nil
 }
