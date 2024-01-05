@@ -31,8 +31,8 @@ func getKey(keyFile string) []byte {
 	return b
 }
 
-func readPassphrase(prompt string) string {
-	fmt.Fprint(os.Stderr, prompt)
+func readPassphrase(location string) string {
+	fmt.Fprintf(os.Stderr, "Please enter passphrase for private key %s: ", location)
 
 	fd := int(os.Stdin.Fd())
 

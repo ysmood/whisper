@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
-
-	whisper "github.com/ysmood/whisper/lib"
 )
 
 func cacheClear() {
@@ -15,7 +13,7 @@ func cacheClear() {
 		exit(err)
 	}
 
-	err = whisper.ClearCache(WHISPER_AGENT_ADDR)
+	err = agent().ClearCache()
 	if err != nil {
 		exit(err)
 	}

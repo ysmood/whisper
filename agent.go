@@ -13,6 +13,10 @@ import (
 	"github.com/ysmood/whisper/lib/secure"
 )
 
+func agent() *whisper.AgentClient {
+	return whisper.NewAgentClient(WHISPER_AGENT_ADDR)
+}
+
 func runAsAgent() {
 	fmt.Fprintf(os.Stderr, "whisper agent started on %s, version: %s\n", WHISPER_AGENT_ADDR, whisper.APIVersion)
 
@@ -20,7 +24,7 @@ func runAsAgent() {
 }
 
 func ensureAgent(background bool) bool {
-	running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
+	running, err := agent().IsAgentRunning(whisper.APIVersion)
 	if err != nil {
 		exit(err)
 	}
@@ -69,7 +73,7 @@ func launchBackgroundAgent() {
 	fmt.Fprintln(os.Stderr, "wait for background whisper agent to start ...")
 
 	for {
-		running, err := whisper.IsAgentRunning(WHISPER_AGENT_ADDR, whisper.APIVersion)
+		running, err := agent().IsAgentRunning(whisper.APIVersion)
 		if err != nil {
 			exit(err)
 		}
@@ -85,7 +89,7 @@ func launchBackgroundAgent() {
 }
 
 func agentCheckPassphrase(prv whisper.PrivateKey) bool {
-	r, err := whisper.IsPassphraseRight(WHISPER_AGENT_ADDR, prv)
+	r, err := agent().IsPassphraseRight(prv)
 	if err != nil {
 		exit(err)
 	}
@@ -98,12 +102,27 @@ func agentWhisper(decrypt bool, conf whisper.Config, in io.ReadCloser, out io.Wr
 
 	req := whisper.AgentReq{Decrypt: decrypt, Config: conf}
 
-	err := whisper.CallAgent(WHISPER_AGENT_ADDR, req, in, out)
+	err := agent().CallAgent(req, in, out)
 	if err != nil {
 		if conf.Sign == nil && errors.Is(err, secure.ErrSignNotMatch) {
 			return
 		}
 
 		exit(err)
+	}
+}
+
+var ErrWrongPassphrase = errors.New("wrong passphrase")
+
+func agentAddPassphrase(path string) {
+	ensureAgent(true)
+
+	prv := getKey(path)
+
+	if !agentCheckPassphrase(whisper.PrivateKey{
+		Data:       prv,
+		Passphrase: readPassphrase(path),
+	}) {
+		exit(ErrWrongPassphrase)
 	}
 }

@@ -27,6 +27,8 @@ func main() { //nolint: funlen
 	asAgent := flags.Bool(AS_AGENT_FLAG, false,
 		"Run as agent, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
 
+	addPassphrase := flags.String("add", "", "Add the key's passphrase to the agent cache.")
+
 	if WHISPER_AGENT_ADDR == "" {
 		WHISPER_AGENT_ADDR = WHISPER_AGENT_ADDR_DEFAULT
 	}
@@ -74,6 +76,11 @@ func main() { //nolint: funlen
 
 	if *asAgent {
 		runAsAgent()
+		return
+	}
+
+	if *addPassphrase != "" {
+		agentAddPassphrase(*addPassphrase)
 		return
 	}
 
@@ -162,7 +169,7 @@ func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *w
 	}
 
 	if !agentCheckPassphrase(private) {
-		private.Passphrase = readPassphrase(fmt.Sprintf("Please enter passphrase for private key %s: ", location))
+		private.Passphrase = readPassphrase(location)
 	}
 
 	return &private

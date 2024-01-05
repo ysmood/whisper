@@ -24,7 +24,7 @@ func TestAgentVersionMatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.IsAgentRunning(addr, whisper.APIVersion)
+	r, err := whisper.NewAgentClient(addr).IsAgentRunning(whisper.APIVersion)
 	g.E(err)
 	g.True(r)
 }
@@ -41,7 +41,7 @@ func TestAgentVersionMismatch(t *testing.T) {
 
 	go s.Listen(l)
 
-	r, err := whisper.IsAgentRunning(addr, "v0.0.0")
+	r, err := whisper.NewAgentClient(addr).IsAgentRunning("v0.0.0")
 	g.E(err)
 	g.False(r)
 
@@ -72,7 +72,7 @@ func TestAgentEncodeDecode(t *testing.T) {
 	in := bytes.NewBufferString("hello")
 	encoded := bytes.NewBuffer(nil)
 
-	err = whisper.CallAgent(addr, whisper.AgentReq{
+	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
 		Config: conf,
 	}, in, encoded)
 	g.E(err)
@@ -84,7 +84,7 @@ func TestAgentEncodeDecode(t *testing.T) {
 	}
 
 	decoded := bytes.NewBuffer(nil)
-	err = whisper.CallAgent(addr, whisper.AgentReq{
+	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
 		Decrypt: true,
 		Config:  conf,
 	}, encoded, decoded)
@@ -116,7 +116,7 @@ func TestAgentSignVerifyErr(t *testing.T) {
 	in := bytes.NewBufferString("hello")
 	encoded := bytes.NewBuffer(nil)
 
-	err = whisper.CallAgent(addr, whisper.AgentReq{
+	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
 		Config: conf,
 	}, in, encoded)
 	g.E(err)
@@ -126,7 +126,7 @@ func TestAgentSignVerifyErr(t *testing.T) {
 	}
 
 	decoded := bytes.NewBuffer(nil)
-	err = whisper.CallAgent(addr, whisper.AgentReq{
+	err = whisper.NewAgentClient(addr).CallAgent(whisper.AgentReq{
 		Decrypt: true,
 		Config:  conf,
 	}, encoded, decoded)
@@ -149,25 +149,25 @@ func TestAgentPassphrase(t *testing.T) {
 	prv, _ := keyPair("id_ecdsa", "")
 
 	// no passphrase
-	r, err := whisper.IsPassphraseRight(addr, whisper.PrivateKey{})
+	r, err := whisper.NewAgentClient(addr).IsPassphraseRight(whisper.PrivateKey{})
 	g.E(err)
 	g.False(r)
 
 	// right passphrase
 	prv.Passphrase = "test"
-	r, err = whisper.IsPassphraseRight(addr, prv)
+	r, err = whisper.NewAgentClient(addr).IsPassphraseRight(prv)
 	g.E(err)
 	g.True(r)
 
 	// cache passphrase
 	prv.Passphrase = ""
-	r, err = whisper.IsPassphraseRight(addr, prv)
+	r, err = whisper.NewAgentClient(addr).IsPassphraseRight(prv)
 	g.E(err)
 	g.True(r)
 
 	// wrong passphrase
 	prv.Passphrase = "123"
-	r, err = whisper.IsPassphraseRight(addr, prv)
+	r, err = whisper.NewAgentClient(addr).IsPassphraseRight(prv)
 	g.E(err)
 	g.False(r)
 }
