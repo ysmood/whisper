@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -89,7 +90,12 @@ func main() { //nolint: funlen
 		input, output = wrapBase64(decrypt, input, output)
 	}
 
-	private, input := getPrivate(decrypt, *signPublicKey != "", *privateKey, input)
+	var meta *whisper.Meta
+	if decrypt {
+		meta, input = getMeta(input)
+	}
+
+	private := getPrivate(decrypt, *signPublicKey != "", *privateKey, meta)
 
 	conf := whisper.Config{
 		GzipLevel: *compressLevel,
@@ -120,13 +126,30 @@ var ErrUnableReadPassphrase = errors.New(
 	"stdin is used for piping, can't read passphrase from it, please use the -i flag for the input file",
 )
 
-func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*whisper.PrivateKey, io.ReadCloser) {
+func getMeta(in io.ReadCloser) (*whisper.Meta, io.ReadCloser) {
+	read := bytes.NewBuffer(nil)
+	tee := io.TeeReader(in, read)
+	in = &piper.WrapReadCloser{Reader: io.MultiReader(read, in), Closer: in}
+
+	meta, err := whisper.DecodeMeta(tee)
+	if err != nil {
+		if isBase64(in) {
+			exit(fmt.Errorf("the input is base64 encoded, you might want to add -b flag to decrypt: %w", err))
+		}
+
+		exit(err)
+	}
+
+	return meta, in
+}
+
+func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *whisper.PrivateKey {
 	if !decrypt && !sign {
-		return nil, in
+		return nil
 	}
 
 	if location == "" && decrypt {
-		location, in = findPrivateKey(in)
+		location = findPrivateKey(meta)
 	}
 
 	if location == "" {
@@ -142,21 +165,12 @@ func getPrivate(decrypt bool, sign bool, location string, in io.ReadCloser) (*wh
 		private.Passphrase = readPassphrase(fmt.Sprintf("Please enter passphrase for private key %s: ", location))
 	}
 
-	return &private, in
+	return &private
 }
 
 // Parse the input file meta and find out which private key to use.
 // It will search the files in ~/.ssh folder.
-func findPrivateKey(in io.ReadCloser) (string, io.ReadCloser) {
-	read := bytes.NewBuffer(nil)
-	tee := io.TeeReader(in, read)
-	in = &piper.WrapReadCloser{Reader: io.MultiReader(read, in), Closer: in}
-
-	meta, err := whisper.DecodeMeta(tee)
-	if err != nil {
-		exit(err)
-	}
-
+func findPrivateKey(meta *whisper.Meta) string {
 	pubKeys, err := filepath.Glob(SSH_DIR + "/*.pub")
 	if err != nil {
 		exit(err)
@@ -169,11 +183,11 @@ func findPrivateKey(in io.ReadCloser) (string, io.ReadCloser) {
 		}
 
 		if has {
-			return prvKeyName(p), in
+			return prvKeyName(p)
 		}
 	}
 
-	return WHISPER_DEFAULT_KEY, in
+	return WHISPER_DEFAULT_KEY
 }
 
 func getPublicKeys(paths []string) []whisper.PublicKey {
@@ -201,4 +215,12 @@ func wrapBase64(decrypt bool, in io.ReadCloser, out io.WriteCloser) (io.ReadClos
 	}
 
 	return in, out
+}
+
+func isBase64(in io.Reader) bool {
+	dec := base64.NewDecoder(base64.StdEncoding, in)
+	buf := bytes.NewBuffer(nil)
+
+	_, err := io.Copy(buf, dec)
+	return err == nil
 }
