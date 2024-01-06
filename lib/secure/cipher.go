@@ -1,36 +1,42 @@
 // Package secure makes encrypted data can only be decrypted by selected recipients.
 // It allows different types of public keys to secretly exchange data.
 //
+// # How It Works
+//
 // Suppose we have a opponent X, append 0 to the upper cased letter we get X0, it represents X's private key,
 // similarly X1 represents X's public key.
-// We have a pool of key pairs S, they are accessible by everyone, they are pregenerated key pairs
-// with the combinations of commonly use key types and sizes, such as 1024bit rsa 1024, 2048bit rsa, 256bit ecdsa, etc.
 // Now we have opponents X and Y, they may have different key types, such as X's is rsa, Y's is ecdsa,
 // we want to encrypt data D with X and decrypt it with Y. X has access to Y1.
 //
 // Encryption steps:
 //
-//	Find M0 from S that has the same key type and size as Y1.
+//	Generate ephemeral key M that has the same key type and size as Y1.
 //	Use Y1 and M0 to generate the shared secret key K.
-//	Use K to encrypt the D to encrypted data E.
-//	Send E to Y.
+//	Use K to encrypt the D, it generates E.
+//	Only send M1 and E to Y.
 //
 // Decryption steps:
 //
-//	Find M1 from S that has the same key type and size as Y0.
 //	Use Y0 and M1 to generate the shared secret key K.
-//	Use K to decrypt E.
+//	Use K to decrypt E, we get D.
 package secure
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/aes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"math/big"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
+	"golang.org/x/crypto/curve25519"
 )
 
 // Cipher to encrypt and decrypt data.
@@ -69,7 +75,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range c.pubs {
-		encrypted, err := c.EncodeAESKey(aesKey, pub)
+		encrypted, err := EncryptSharedSecret(aesKey, c.AESType, pub)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +117,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		encryptedKeys = append(encryptedKeys, encrypted)
 	}
 
-	aesKey, err := c.DecodeAESKey(encryptedKeys)
+	aesKey, err := DecryptSharedSecret(encryptedKeys[c.index], c.AESType, c.prv)
 	if err != nil {
 		return nil, err
 	}
@@ -121,15 +127,119 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 var ErrNotRecipient = fmt.Errorf("not a recipient, the data is not encrypted for your public key")
 
-func (c *Cipher) EncodeAESKey(aesKey []byte, pub crypto.PublicKey) ([]byte, error) {
-	encryptedKey, err := EncryptSharedSecret(aesKey, c.AESType, pub)
-	if err != nil {
-		return nil, err
-	}
+func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]byte, error) {
+	switch key := pub.(type) {
+	case *ecdsa.PublicKey:
+		ephemeral, err := ecdsa.GenerateKey(key.Curve, rand.Reader)
+		if err != nil {
+			return nil, err
+		}
 
-	return encryptedKey, nil
+		prv, err := ephemeral.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		public, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := prv.ECDH(public)
+		if err != nil {
+			return nil, err
+		}
+
+		encrypted, err := EncryptAES(secret, aesKey, aesType, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		return bytes.Join([][]byte{
+			ephemeral.PublicKey.X.Bytes(),
+			ephemeral.PublicKey.Y.Bytes(),
+			encrypted,
+		}, nil), nil
+
+	case ed25519.PublicKey:
+		ephemeralPub, ephemeralPrv, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+
+		xPrv := ed25519PrivateKeyToCurve25519(ephemeralPrv)
+		xPub, err := ed25519PublicKeyToCurve25519(key)
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := curve25519.X25519(xPrv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		encrypted, err := EncryptAES(secret, aesKey, aesType, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		return append(ephemeralPub, encrypted...), nil
+
+	case *rsa.PublicKey:
+		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, aesKey, nil)
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
+	}
 }
 
-func (c *Cipher) DecodeAESKey(encryptedKeys [][]byte) ([]byte, error) {
-	return DecryptSharedSecret(encryptedKeys[c.index], c.AESType, c.prv)
+func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.PrivateKey) ([]byte, error) {
+	switch key := prv.(type) {
+	case *ecdsa.PrivateKey:
+		size := key.PublicKey.Params().BitSize / 8
+		x, y, encrypted := encryptedAESKey[:size], encryptedAESKey[size:size*2], encryptedAESKey[size*2:]
+		public := &ecdsa.PublicKey{
+			Curve: key.Curve,
+			X:     new(big.Int).SetBytes(x),
+			Y:     new(big.Int).SetBytes(y),
+		}
+
+		private, err := key.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		pub, err := public.ECDH()
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := private.ECDH(pub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(secret, encrypted, aesType, 0)
+
+	case ed25519.PrivateKey:
+		pubBytes, encryptedAESKey := encryptedAESKey[:ed25519.PublicKeySize], encryptedAESKey[ed25519.PublicKeySize:]
+		xPrv := ed25519PrivateKeyToCurve25519(key)
+		xPub, err := ed25519PublicKeyToCurve25519(ed25519.PublicKey(pubBytes))
+		if err != nil {
+			return nil, err
+		}
+
+		secret, err := curve25519.X25519(xPrv, xPub)
+		if err != nil {
+			return nil, err
+		}
+
+		return DecryptAES(secret, encryptedAESKey, aesType, 0)
+
+	case *rsa.PrivateKey:
+		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)
+
+	default:
+		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
+	}
 }

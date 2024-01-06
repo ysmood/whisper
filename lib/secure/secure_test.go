@@ -3,10 +3,6 @@ package secure_test
 import (
 	"bytes"
 	"crypto/x509"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/ysmood/got"
@@ -30,7 +26,7 @@ func TestBasic(t *testing.T) {
 		g.E(err)
 		g.E(enc.Write([]byte("ok")))
 		g.E(enc.Close())
-		g.Len(buf.Bytes(), 88)
+		g.Len(buf.Bytes(), 216)
 	}
 
 	{
@@ -79,7 +75,7 @@ func TestED25519(t *testing.T) { //nolint: dupl
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	g.Eq(buf.Len(), 55)
+	g.Eq(buf.Len(), 87)
 
 	dec, err := key02.Decoder(buf)
 	g.E(err)
@@ -203,45 +199,6 @@ func TestSharedSecret(t *testing.T) {
 	check("test_data/id_ecdsa01")
 	check("test_data/id_ed25519_01")
 	check("test_data/id_rsa01")
-}
-
-func TestKeyTypes(t *testing.T) {
-	g := got.T(t)
-
-	check := func(file string) {
-		g.Helper()
-
-		pub, err := secure.SSHPubKey(g.Read(file).Bytes())
-		g.E(err)
-
-		ms := regexp.MustCompile(`(\d+).pub`).FindStringSubmatch(file)
-		size, err := strconv.ParseInt(ms[1], 10, 64)
-		g.E(err)
-
-		g.Desc(file).Eq(secure.PublicKeySize(pub), size)
-
-		file = strings.TrimSuffix(file, ".pub")
-
-		prv, err := secure.SSHPrvKey(g.Read(file).Bytes(), "")
-		g.E(err)
-
-		g.Desc(file).Eq(secure.PrivateKeySize(prv), size)
-
-		sharedPub, err := secure.FindPubSharedKey(prv)
-		g.E(err)
-		g.Eq(sharedPub, pub)
-
-		sharedPrv, err := secure.FindPrvSharedKey(pub)
-		g.E(err)
-		g.Eq(sharedPrv, prv)
-	}
-
-	ms, err := filepath.Glob("shared-keys/*.pub")
-	g.E(err)
-
-	for _, p := range ms {
-		check(p)
-	}
 }
 
 func TestBelongs(t *testing.T) {

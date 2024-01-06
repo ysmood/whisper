@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 	})
 	g.E(err)
 
-	g.Len(encrypted, 148)
+	g.Len(encrypted, 232)
 
 	decrypted01, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	g.E(err)
