@@ -17,6 +17,11 @@ import (
 func main() { //nolint: funlen
 	flags := flag.NewFlagSet("whisper", flag.ExitOnError)
 
+	flags.Usage = func() {
+		fmt.Print(USAGE)
+		flags.PrintDefaults()
+	}
+
 	version := flags.Bool("v", false, "Print version.")
 
 	clearCache := flags.Bool("clear-cache", false, "Clear the cache.")
@@ -42,6 +47,9 @@ func main() { //nolint: funlen
 	signPublicKey := flags.String("s", "",
 		`To sign or verify the data this flag is required. Format is same as -e flag.`)
 
+	printMeta := flags.Bool("m", false, "Print the meta data of the encrypted file.\n"+
+		"Usually it's used to view the sender to avoid MITM attack.")
+
 	var publicKeys publicKeysFlag
 	flags.Var(&publicKeys, "e",
 		`Encrypt with the public key, each can be a local file path, "@{GITHUB_ID}", or "@{HTTPS_URL}".`+"\n"+
@@ -53,11 +61,6 @@ func main() { //nolint: funlen
 
 	inputFile := flags.String("i", "", "Input encryption/decryption from the specified file or https url.")
 	outputFile := flags.String("o", "", "Output encryption/decryption to the specified file.")
-
-	flags.Usage = func() {
-		fmt.Println("Usage: whisper [options] [input file]")
-		flags.PrintDefaults()
-	}
 
 	err := flags.Parse(os.Args[1:])
 	if err != nil {
@@ -105,6 +108,11 @@ func main() { //nolint: funlen
 	var meta *whisper.Meta
 	if decrypt {
 		meta, input = getMeta(input)
+	}
+
+	if *printMeta {
+		fmt.Println(meta.String())
+		return
 	}
 
 	private := getPrivate(decrypt, *signPublicKey != "", *privateKey, meta)
@@ -234,12 +242,6 @@ func fetchPublicKey(location string) whisper.PublicKey {
 	}
 
 	cache(location, key.Data)
-
-	if p, remote := whisper.ExtractRemotePublicKey(location); remote {
-		meta := whisper.PublicKeyFromMeta(p)
-		key.ID = meta.ID
-		key.Selector = meta.Selector
-	}
 
 	return *key
 }

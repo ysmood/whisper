@@ -60,6 +60,8 @@ func (s *Signer) Verify(data []byte) ([]byte, bool) {
 	return b, true
 }
 
+var ErrAlreadyClosed = errors.New("already closed")
+
 func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 	empty := []byte{}
 	h := sha256.New()
@@ -79,7 +81,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 		},
 		C: func() error {
 			if closed {
-				return nil
+				return ErrAlreadyClosed
 			}
 			closed = true
 
@@ -89,11 +91,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 			}
 
 			_, err = w.Write(append(byframe.Encode(empty), byframe.Encode(sign)...))
-			if err != nil {
-				return err
-			}
-
-			return piper.Close(w)
+			return err
 		},
 	}, nil
 }
@@ -105,6 +103,7 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 	f.Limit(1024 * 1024)
 	buf := piper.Buffer{}
 	h := sha256.New()
+	closed := false
 
 	return piper.ReadClose{
 		R: func(p []byte) (n int, err error) {
@@ -138,7 +137,12 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 			return n, nil
 		},
 		C: func() error {
-			return piper.Close(r)
+			if closed {
+				return ErrAlreadyClosed
+			}
+			closed = true
+
+			return nil
 		},
 	}, nil
 }

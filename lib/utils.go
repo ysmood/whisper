@@ -19,9 +19,6 @@ import (
 )
 
 func (w *Whisper) Handle(input io.ReadCloser, output io.WriteCloser) error {
-	defer func() { _ = input.Close() }()
-	defer func() { _ = output.Close() }()
-
 	if w.conf.IsDecryption() {
 		dec, err := w.Decoder(input)
 		if err != nil {
@@ -38,7 +35,11 @@ func (w *Whisper) Handle(input io.ReadCloser, output io.WriteCloser) error {
 	}
 
 	_, err = io.Copy(enc, input)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return enc.Close()
 }
 
 var ErrPrvKeyNotFound = errors.New("private key not found")
@@ -203,14 +204,19 @@ func splitIntoLines(text []byte) []string {
 	return lines
 }
 
+// FetchPublicKey from the location, it can be a local file path, github id or a remote url.
+// Only remote file will have [PublicKey.ID] and [PublicKey.Selector].
 func FetchPublicKey(location string) (*PublicKey, error) {
 	location, remote := ExtractRemotePublicKey(location)
 	location, sel := extractPublicKeySelector(location)
 
 	var key []byte
 	var err error
+	var id, selector string
 	if remote {
 		key, err = getRemotePublicKey(location)
+		id = location
+		selector = sel
 	} else {
 		key, err = ReadKey(location)
 	}
@@ -222,7 +228,7 @@ func FetchPublicKey(location string) (*PublicKey, error) {
 		return nil, fmt.Errorf("%w: %s", ErrPubKeyNotFound, location)
 	}
 
-	return &PublicKey{Data: key, ID: location, Selector: sel}, nil
+	return &PublicKey{Data: key, ID: id, Selector: selector}, nil
 }
 
 func getRemotePublicKey(p string) ([]byte, error) {

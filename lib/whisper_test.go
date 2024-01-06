@@ -10,6 +10,7 @@ import (
 
 	"github.com/ysmood/got"
 	whisper "github.com/ysmood/whisper/lib"
+	"github.com/ysmood/whisper/lib/piper"
 	"github.com/ysmood/whisper/lib/secure"
 )
 
@@ -36,13 +37,16 @@ func TestBasic(t *testing.T) {
 	recipient01, recipient01Pub := keyPair("id_ed25519_01", "test")
 	recipient02, recipient02Pub := keyPair("id_ed25519_02", "")
 
+	data := "hello world!"
+
 	// Encrypt the message that can be decrypted by both recipient01 and recipient02.
-	encrypted, err := whisper.EncodeString("hello world!", whisper.Config{
-		Public: []whisper.PublicKey{recipient01Pub, recipient02Pub},
+	encrypted, err := whisper.EncodeString(data, whisper.Config{
+		Public:    []whisper.PublicKey{recipient01Pub, recipient02Pub},
+		GzipLevel: 9,
 	})
 	g.E(err)
 
-	g.Len(encrypted, 232)
+	g.Len(encrypted, 264)
 
 	decrypted01, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	g.E(err)
@@ -50,20 +54,20 @@ func TestBasic(t *testing.T) {
 	decrypted02, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient02})
 	g.E(err)
 
-	g.Eq(decrypted01, "hello world!")
+	g.Eq(decrypted01, data)
 	g.Eq(decrypted01, decrypted02)
 }
 
 func TestSign(t *testing.T) {
 	g := got.T(t)
 
-	sender01, senderPub := keyPair("id_ecdsa01", "test")
+	sender, senderPub := keyPair("id_ecdsa01", "test")
 	recipient01, recipient01Pub := keyPair("id_ed25519_01", "test")
 	recipient02, recipient02Pub := keyPair("id_ed25519_02", "")
 
 	// Encrypt the message that can be decrypted by both recipient01 and recipient02.
 	encrypted, err := whisper.EncodeString("hello world!", whisper.Config{
-		Private: &sender01,
+		Private: &sender,
 		Sign:    &senderPub,
 		Public:  []whisper.PublicKey{recipient01Pub, recipient02Pub},
 	})
@@ -90,6 +94,28 @@ func TestSign(t *testing.T) {
 	g.Is(err, secure.ErrSignNotMatch)
 
 	g.Eq(decrypted02, "hello world!")
+}
+
+func TestWhisperHandle(t *testing.T) {
+	g := got.T(t)
+
+	recipient01, recipient01Pub := keyPair("id_ed25519_01", "test")
+
+	data := "hello world!"
+	encrypted := bytes.NewBuffer(nil)
+
+	err := whisper.New(whisper.Config{
+		Public: []whisper.PublicKey{recipient01Pub},
+	}).Handle(io.NopCloser(bytes.NewReader([]byte(data))), piper.NopCloser(encrypted))
+	g.E(err)
+
+	decrypted := bytes.NewBuffer(nil)
+	err = whisper.New(whisper.Config{
+		Private: &recipient01,
+	}).Handle(io.NopCloser(encrypted), piper.NopCloser(decrypted))
+	g.E(err)
+
+	g.Eq(decrypted.String(), data)
 }
 
 func TestPubKeyHashList(t *testing.T) {
@@ -144,6 +170,8 @@ func TestMeta(t *testing.T) {
 	has, err = meta.HasPubKey(recipient02Pub)
 	g.E(err)
 	g.True(has)
+
+	g.Eq(meta.String(), "wire-format: v4, sender: \"test:abc\", recipients: [13c1f8a1 9b21f010], gzip: true, sign: true")
 }
 
 func keyPair(privateKeyName, passphrase string) (whisper.PrivateKey, whisper.PublicKey) {
@@ -158,4 +186,26 @@ func keyPair(privateKeyName, passphrase string) (whisper.PrivateKey, whisper.Pub
 	}
 
 	return whisper.PrivateKey{prv, passphrase}, whisper.PublicKey{Data: pub}
+}
+
+func TestFetchPublicKey(t *testing.T) {
+	g := got.T(t)
+
+	{
+		pub, err := whisper.FetchPublicKey("secure/test_data/id_ecdsa01.pub")
+		g.E(err)
+
+		g.Has(string(pub.Data), "ecdsa")
+		g.Eq(pub.ID, "")
+		g.Eq(pub.Selector, "")
+	}
+
+	{
+		pub, err := whisper.FetchPublicKey("@ysmood:ssh")
+		g.E(err)
+
+		g.Has(string(pub.Data), "ssh")
+		g.Eq(pub.ID, "ysmood")
+		g.Eq(pub.Selector, "ssh")
+	}
 }

@@ -4,6 +4,8 @@ import "io"
 
 type EncodeDecoder interface {
 	// Encoder returns a writer that will encode data to out.
+	// When the Close method is called, it should not close the underlying writer,
+	// it should only flush the pending data from buffer.
 	Encoder(out io.Writer) (io.WriteCloser, error)
 
 	// Decoder returns a reader that will decode the data from in.
@@ -24,47 +26,42 @@ func (ed *EncodeDecoderFn) Decoder(r io.Reader) (io.ReadCloser, error) {
 }
 
 func Join(list ...EncodeDecoder) EncodeDecoder {
-	for i, j := 0, len(list)-1; i < j; i, j = i+1, j-1 {
-		list[i], list[j] = list[j], list[i]
-	}
-
 	return &EncodeDecoderFn{
 		E: func(w io.Writer) (io.WriteCloser, error) {
-			ws := closeWriters{w}
-			for _, e := range list {
-				var err error
-				w, err = e.Encoder(w)
+			wc := &writeClosers{Writer: w}
+			for i := len(list) - 1; i >= 0; i-- {
+				w, err := list[i].Encoder(wc.Writer)
 				if err != nil {
 					return nil, err
 				}
-				ws = append(closeWriters{w}, ws...)
+				wc.Writer = w
+				wc.closers = append(wc.closers, w)
 			}
-			return ws, nil
+			return wc, nil
 		},
 		D: func(r io.Reader) (io.ReadCloser, error) {
-			rs := closeReaders{r}
-			for _, d := range list {
-				var err error
-				r, err = d.Decoder(r)
+			rc := &readClosers{Reader: r}
+			for i := len(list) - 1; i >= 0; i-- {
+				r, err := list[i].Decoder(rc.Reader)
 				if err != nil {
 					return nil, err
 				}
-				rs = append(closeReaders{r}, rs...)
+				rc.Reader = r
+				rc.closers = append(rc.closers, r)
 			}
-			return rs, nil
+			return rc, nil
 		},
 	}
 }
 
-type closeWriters []io.Writer
-
-func (cw closeWriters) Write(p []byte) (n int, err error) {
-	return cw[0].Write(p)
+type writeClosers struct {
+	io.Writer
+	closers []io.Closer
 }
 
-func (cw closeWriters) Close() error {
-	for _, w := range cw {
-		err := Close(w)
+func (wc *writeClosers) Close() error {
+	for i := len(wc.closers) - 1; i >= 0; i-- {
+		err := wc.closers[i].Close()
 		if err != nil {
 			return err
 		}
@@ -72,25 +69,17 @@ func (cw closeWriters) Close() error {
 	return nil
 }
 
-type closeReaders []io.Reader
-
-func (cr closeReaders) Read(p []byte) (n int, err error) {
-	return cr[0].Read(p)
+type readClosers struct {
+	io.Reader
+	closers []io.Closer
 }
 
-func (cr closeReaders) Close() error {
-	for _, r := range cr {
-		err := Close(r)
+func (rc *readClosers) Close() error {
+	for i := len(rc.closers) - 1; i >= 0; i-- {
+		err := rc.closers[i].Close()
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func Close(stream interface{}) error {
-	if c, ok := stream.(io.Closer); ok {
-		return c.Close()
 	}
 	return nil
 }

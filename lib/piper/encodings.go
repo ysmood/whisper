@@ -17,18 +17,10 @@ import (
 type Transparent struct{}
 
 func (t *Transparent) Encoder(w io.Writer) (io.WriteCloser, error) {
-	if wc, ok := w.(io.WriteCloser); ok {
-		return wc, nil
-	}
-
 	return NopCloser(w), nil
 }
 
 func (t *Transparent) Decoder(r io.Reader) (io.ReadCloser, error) {
-	if rc, ok := r.(io.ReadCloser); ok {
-		return rc, nil
-	}
-
 	return io.NopCloser(r), nil
 }
 
@@ -104,7 +96,7 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 	s := &cipher.StreamWriter{
 		S: cipher.NewOFB(block, iv),
-		W: w,
+		W: NopCloser(w),
 	}
 
 	// https://www.rfc-editor.org/rfc/rfc4880#section-5.13
@@ -135,14 +127,14 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	rc := io.NopCloser(&cipher.StreamReader{
+	sr := &cipher.StreamReader{
 		S: cipher.NewOFB(block, iv),
 		R: r,
-	})
+	}
 
 	guard := make([]byte, a.Guard)
 
-	_, err = io.ReadFull(rc, guard)
+	_, err = io.ReadFull(sr, guard)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +143,7 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, ErrAESDecode
 	}
 
-	return rc, nil
+	return io.NopCloser(sr), nil
 }
 
 func (a *AES) hdf() ([]byte, error) {

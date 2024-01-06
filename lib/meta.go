@@ -3,6 +3,7 @@ package whisper
 import (
 	"compress/gzip"
 	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -38,7 +39,7 @@ func (c Config) EncodeMeta(out io.Writer) error {
 
 	buf := []byte{
 		// version
-		FormatVersion,
+		WireFormatVersion,
 		// flags
 		c.genFlags(long),
 	}
@@ -88,11 +89,11 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 
 		version := oneByte[0]
 
-		if version != FormatVersion {
+		if version != WireFormatVersion {
 			return nil, fmt.Errorf(
 				"%w: expect v%d but got v%d",
 				ErrVersionMismatch,
-				FormatVersion,
+				WireFormatVersion,
 				version,
 			)
 		}
@@ -186,6 +187,27 @@ func (m Meta) HasPubKey(p PublicKey) (bool, error) {
 
 	_, has := m.Recipients[string(h)]
 	return has, nil
+}
+
+func (m Meta) String() string {
+	recipients := make([]string, len(m.Recipients))
+	for hash, i := range m.Recipients {
+		recipients[i] = hex.EncodeToString([]byte(hash))
+	}
+
+	sender := ""
+	if m.Sender != nil {
+		sender = m.Sender.Meta()
+	}
+
+	return fmt.Sprintf(
+		"wire-format: v%d, sender: \"%s\", recipients: %v, gzip: %v, sign: %v",
+		WireFormatVersion,
+		sender,
+		recipients,
+		m.Gzip,
+		m.Sign,
+	)
 }
 
 func (c Config) genFlags(long bool) byte {

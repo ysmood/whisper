@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	APIVersion    = "v0.5.0"
-	FormatVersion = byte(4)
+	APIVersion        = "v0.5.0"
+	WireFormatVersion = byte(4)
 )
 
 type PrivateKey struct {
@@ -61,6 +61,9 @@ func (k PublicKey) Select() ([]byte, error) {
 }
 
 func (k PublicKey) Meta() string {
+	if k.ID == "" {
+		return ""
+	}
 	return fmt.Sprintf("%s:%s", k.ID, k.Selector)
 }
 

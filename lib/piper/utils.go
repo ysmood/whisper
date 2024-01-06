@@ -6,7 +6,7 @@ import (
 )
 
 type nopCloser struct {
-	w io.Writer
+	io.Writer
 }
 
 func NopCloser(w io.Writer) io.WriteCloser {
@@ -14,7 +14,7 @@ func NopCloser(w io.Writer) io.WriteCloser {
 }
 
 func (w *nopCloser) Write(p []byte) (n int, err error) {
-	return w.w.Write(p)
+	return w.Writer.Write(p)
 }
 
 func (w *nopCloser) Close() error {

@@ -129,7 +129,7 @@ func (a *AgentServer) handleCheckVersion(s io.ReadWriteCloser, version string) e
 		return a.res(s, AgentRes{Running: true})
 	}
 
-	a.Logger.Warn("version mismatch, close server", "server", FormatVersion, "client", version)
+	a.Logger.Warn("version mismatch, close server", "server", WireFormatVersion, "client", version)
 	return a.listener.Close()
 }
 
@@ -162,7 +162,7 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 	}
 
 	if req.Config.IsDecryption() {
-		r, err := wsp.Decoder(io.NopCloser(s))
+		r, err := wsp.Decoder(s)
 		if err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 		return r.Close()
 	}
 
-	w, err := wsp.Encoder(piper.NopCloser(s))
+	w, err := wsp.Encoder(s)
 	if err != nil {
 		return err
 	}
