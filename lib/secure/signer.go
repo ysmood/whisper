@@ -96,7 +96,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 	}, nil
 }
 
-var ErrSignNotMatch = errors.New("sign not match")
+var ErrSignMismatch = errors.New("sign mismatch")
 
 func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 	f := byframe.NewScanner(r)
@@ -131,7 +131,7 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 				buf = data
 				n = buf.Consume(p)
 			} else if !s.VerifyDigest(h.Sum(nil), sign) {
-				return 0, ErrSignNotMatch
+				return 0, ErrSignMismatch
 			}
 
 			return n, nil

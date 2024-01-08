@@ -2,6 +2,7 @@ package piper_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net"
 	"testing"
@@ -106,7 +107,15 @@ func TestTransformReader(t *testing.T) {
 	test(3000)
 }
 
-func TestWriteEnd(t *testing.T) {
+type msgError struct {
+	Message string
+}
+
+func (e msgError) Error() string {
+	return e.Message
+}
+
+func TestEnder(t *testing.T) {
 	g := got.T(t)
 
 	data := g.RandBytes(10000)
@@ -115,25 +124,47 @@ func TestWriteEnd(t *testing.T) {
 	g.E(err)
 
 	g.Go(func() {
-		conn, err := s.Accept()
-		g.E(err)
+		{
+			conn, err := s.Accept()
+			g.E(err)
+			w := piper.NewEnder(conn)
+			g.E(w.Write(data))
+			g.E(w.End(nil))
+			g.E(w.Close())
+		}
 
-		w := piper.NewEnder(conn)
-
-		g.E(w.Write(data))
-
-		g.E(w.End(nil))
-
-		g.E(w.Close())
+		{
+			conn, err := s.Accept()
+			g.E(err)
+			w := piper.NewEnder(conn)
+			g.E(w.Write(data))
+			g.E(w.End(msgError{"test"}))
+			g.E(w.Close())
+		}
 	})
 
-	conn, err := net.Dial("tcp", s.Addr().String())
-	g.E(err)
+	{
+		conn, err := net.Dial("tcp", s.Addr().String())
+		g.E(err)
 
-	r := piper.NewEnder(conn)
+		r := piper.NewEnder(conn)
 
-	b, err := io.ReadAll(r)
-	g.E(err)
+		b, err := io.ReadAll(r)
+		g.E(err)
 
-	g.Eq(b, data)
+		g.Eq(b, data)
+	}
+
+	{
+		conn, err := net.Dial("tcp", s.Addr().String())
+		g.E(err)
+
+		r := piper.NewEnder(conn)
+
+		b, err := io.ReadAll(r)
+		g.Eq(b, data)
+		var e msgError
+		g.E(json.Unmarshal(err.(piper.EndErrors), &e)) //nolint: errorlint
+		g.Eq(e.Message, "test")
+	}
 }

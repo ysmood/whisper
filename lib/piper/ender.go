@@ -1,6 +1,7 @@
 package piper
 
 import (
+	"encoding/json"
 	"io"
 
 	"github.com/ysmood/byframe/v4"
@@ -13,7 +14,8 @@ func (e EndErrors) Error() string {
 }
 
 // Ender acts like a proxy for the a io.ReadWriteCloser.
-// It will append a end section to each packet in the stream, so we can stream extra info for each packet.
+// The writer can send [EndErrors] to the reader.
+// It will use json to marshal the error for the reader.
 type Ender struct {
 	w *WriteEnder
 	r *ReadEnder
@@ -38,8 +40,8 @@ func (e Ender) Close() error {
 	return e.w.Close()
 }
 
-func (e Ender) End(msg []byte) error {
-	return e.w.End(msg)
+func (e Ender) End(err error) error {
+	return e.w.End(err)
 }
 
 type WriteEnder struct {
@@ -68,13 +70,21 @@ func (w WriteEnder) Close() error {
 	return w.w.Close()
 }
 
-func (w WriteEnder) End(msg []byte) error {
+func (w WriteEnder) End(e error) error {
 	_, err := w.w.Write(byframe.Encode([]byte{1}))
 	if err != nil {
 		return err
 	}
 
-	_, err = w.w.Write(byframe.Encode(msg))
+	var b []byte
+	if e != nil {
+		b, err = json.Marshal(e)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = w.w.Write(byframe.Encode(b))
 	return err
 }
 

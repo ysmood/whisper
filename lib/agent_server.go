@@ -2,7 +2,6 @@ package whisper
 
 import (
 	"crypto/md5"
-	"encoding/gob"
 	"errors"
 	"io"
 	"log/slog"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
+	"github.com/ysmood/whisper/lib/secure"
 )
 
 type AgentReq struct {
@@ -27,12 +27,21 @@ type AgentRes struct {
 	WrongPublicKey  bool
 }
 
-var _ = func() int {
-	gob.Register(AgentReq{})
-	gob.Register(AgentRes{})
+type AgentErrorType int
 
-	return 0
-}()
+const (
+	AgentErrorTypeOthers AgentErrorType = iota
+	AgentErrorTypeSignMismatch
+)
+
+type AgentError struct {
+	Type    AgentErrorType
+	Message string
+}
+
+func (e AgentError) Error() string {
+	return e.Message
+}
 
 // AgentServer is a tcp server that can be used to avoid inputting the passphrase every time.
 // It will do the encryption and decryption for you, not the agent client.
@@ -87,7 +96,12 @@ func (a *AgentServer) Listen(l net.Listener) {
 
 			err := a.Handle(s)
 			if err != nil {
-				err := s.End([]byte(err.Error()))
+				typ := AgentErrorTypeOthers
+				if errors.Is(err, secure.ErrSignMismatch) {
+					typ = AgentErrorTypeSignMismatch
+				}
+
+				err := s.End(AgentError{Type: typ, Message: err.Error()})
 				if err != nil {
 					a.Logger.Warn("ender error", "err", err)
 				}

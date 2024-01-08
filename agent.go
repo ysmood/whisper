@@ -80,7 +80,7 @@ func agentWhisper(conf whisper.Config, in io.ReadCloser, out io.WriteCloser) {
 
 	err := agent().Whisper(conf, in, out)
 	if err != nil {
-		if conf.Sign == nil && errors.Is(err, secure.ErrSignNotMatch) {
+		if conf.Sign == nil && errors.Is(err, secure.ErrSignMismatch) {
 			return
 		}
 

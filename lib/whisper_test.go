@@ -91,7 +91,7 @@ func TestSign(t *testing.T) {
 	decrypted02, err = whisper.DecodeString(encrypted, whisper.Config{
 		Private: &recipient02,
 	})
-	g.Is(err, secure.ErrSignNotMatch)
+	g.Is(err, secure.ErrSignMismatch)
 
 	g.Eq(decrypted02, "hello world!")
 }

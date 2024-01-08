@@ -1,10 +1,10 @@
 package whisper
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"strings"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
@@ -54,9 +54,20 @@ func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 
 	eg.Go(func() error {
 		_, err = io.Copy(out, stream)
-		if err != nil {
-			if strings.Contains(err.Error(), secure.ErrSignNotMatch.Error()) {
-				err = secure.ErrSignNotMatch
+		if err != nil { //nolint: nestif
+			var endErr piper.EndErrors
+			if errors.As(err, &endErr) {
+				var ae AgentError
+				err := json.Unmarshal(endErr, &ae)
+				if err != nil {
+					return err
+				}
+
+				if ae.Type == AgentErrorTypeSignMismatch {
+					return secure.ErrSignMismatch
+				}
+
+				return ae
 			}
 
 			return err

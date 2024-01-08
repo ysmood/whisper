@@ -120,7 +120,7 @@ func TestAgentSignVerifyErr(t *testing.T) {
 
 	decoded := bytes.NewBuffer(nil)
 	err = whisper.NewAgentClient(addr).Whisper(conf, encoded, decoded)
-	g.Is(err, secure.ErrSignNotMatch)
+	g.Is(err, secure.ErrSignMismatch)
 
 	g.Eq(decoded.String(), "hello")
 }
