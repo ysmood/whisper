@@ -134,6 +134,22 @@ func TestPubKeyHashList(t *testing.T) {
 	g.Snapshot("hash list", list)
 }
 
+func TestPubKeyLongHashList(t *testing.T) {
+	g := got.T(t)
+
+	_, recipient01Pub := keyPair("id_ecdsa01", "test")
+	_, recipient02Pub := keyPair("id_ecdsa01", "test")
+
+	conf := whisper.Config{Public: []whisper.PublicKey{recipient01Pub, recipient02Pub}}
+
+	long, list, err := conf.PubKeyHashList()
+	g.E(err)
+
+	g.True(long)
+	g.Len(list[0], secure.KEY_HASH_SIZE)
+	g.Snapshot("hash list", list)
+}
+
 func TestMeta(t *testing.T) {
 	g := got.T(t)
 

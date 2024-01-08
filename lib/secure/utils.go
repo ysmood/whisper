@@ -2,11 +2,9 @@ package secure
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/md5"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha1"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -15,23 +13,20 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func PublicKeyHash(pub crypto.PublicKey) []byte {
-	h := sha1.New()
-	var d []byte
+const KEY_HASH_SIZE = md5.Size
 
-	switch key := pub.(type) {
-	case *ecdsa.PublicKey:
-		d = h.Sum(append(key.X.Bytes(), key.Y.Bytes()...))
-	case ed25519.PublicKey:
-		d = h.Sum(key)
-	case *rsa.PublicKey:
-		d = h.Sum(key.N.Bytes())
+func PublicKeyHash(pub crypto.PublicKey) ([]byte, error) {
+	sshPubKey, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		return nil, err
 	}
 
-	return d[:sha1.Size]
+	d := md5.Sum(sshPubKey.Marshal())
+
+	return d[:], nil
 }
 
-func PublicKeyHashByPrivateKey(prv crypto.PrivateKey) []byte {
+func PublicKeyHashByPrivateKey(prv crypto.PrivateKey) ([]byte, error) {
 	return PublicKeyHash(prv.(crypto.Signer).Public())
 }
 

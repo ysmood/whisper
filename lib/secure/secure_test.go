@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/x509"
+	"encoding/hex"
 	"testing"
 
 	"github.com/ysmood/got"
@@ -246,4 +247,24 @@ func TestGenerateKeyFile(t *testing.T) {
 	prv, err := secure.SSHPrvKey(g.Read(p).Bytes(), "pass")
 	g.E(err)
 	g.Is(prv, ed25519.PrivateKey{})
+}
+
+func TestKeyHash(t *testing.T) {
+	g := got.T(t)
+
+	check := func(path, hash string) {
+		g.Helper()
+
+		pub, err := secure.SSHPubKey(g.Read(path).Bytes())
+		g.E(err)
+
+		h, err := secure.PublicKeyHash(pub)
+		g.E(err)
+
+		g.Eq(hex.EncodeToString(h), hash)
+	}
+
+	check("test_data/id_ecdsa01.pub", "a1d24659785b9fd248b96cb130eabec6")
+	check("test_data/id_rsa01.pub", "b2992973edd01b725c64df76d5a14a72")
+	check("test_data/id_ed25519_01.pub", "eed9252ded1ec307bdeebfe627842175")
 }

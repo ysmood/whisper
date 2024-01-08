@@ -50,7 +50,8 @@ var privateKeyCache = map[string]crypto.PrivateKey{}
 func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 	d := md5.New()
 	_, _ = d.Write(keyData)
-	id := string(d.Sum([]byte(passphrase)))
+	_, _ = d.Write([]byte(passphrase))
+	id := string(d.Sum(nil))
 
 	if key, ok := privateKeyCache[id]; ok {
 		return key, nil

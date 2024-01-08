@@ -2,7 +2,6 @@ package whisper
 
 import (
 	"compress/gzip"
-	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -151,7 +150,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 
 func (m Meta) HashSize() int {
 	if m.LongPubKeyHash {
-		return sha1.Size
+		return secure.KEY_HASH_SIZE
 	}
 
 	return 4
@@ -164,8 +163,12 @@ func (m Meta) GetIndex(p PrivateKey) (int, error) {
 		return 0, err
 	}
 
-	h := secure.PublicKeyHashByPrivateKey(key)[:m.HashSize()]
-	if i, has := m.Recipients[string(h)]; has {
+	h, err := secure.PublicKeyHashByPrivateKey(key)
+	if err != nil {
+		return 0, err
+	}
+
+	if i, has := m.Recipients[string(h[:m.HashSize()])]; has {
 		return i, nil
 	}
 
@@ -183,9 +186,12 @@ func (m Meta) HasPubKey(p PublicKey) (bool, error) {
 		return false, err
 	}
 
-	h := secure.PublicKeyHash(pub)[:m.HashSize()]
+	h, err := secure.PublicKeyHash(pub)
+	if err != nil {
+		return false, err
+	}
 
-	_, has := m.Recipients[string(h)]
+	_, has := m.Recipients[string(h[:m.HashSize()])]
 	return has, nil
 }
 
@@ -240,7 +246,10 @@ func (c Config) PubKeyHashList() (bool, [][]byte, error) {
 			return false, nil, err
 		}
 
-		h := secure.PublicKeyHash(pub)
+		h, err := secure.PublicKeyHash(pub)
+		if err != nil {
+			return false, nil, err
+		}
 
 		hashList = append(hashList, h)
 
