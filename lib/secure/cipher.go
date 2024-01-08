@@ -39,6 +39,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+const AES_GUARD = 4
+
 // Cipher to encrypt and decrypt data.
 // The cipher will generate a random AES secret, each public key will be used to encrypt the AES secret into a key.
 // The wire format of the output looks like this:
@@ -95,7 +97,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 		}
 	}
 
-	return piper.NewAES(aesKey, c.AESType, 2).Encoder(w)
+	return piper.NewAES(aesKey, c.AESType, AES_GUARD).Encoder(w)
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
@@ -122,7 +124,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	return piper.NewAES(aesKey, c.AESType, 2).Decoder(r)
+	return piper.NewAES(aesKey, c.AESType, AES_GUARD).Decoder(r)
 }
 
 var ErrNotRecipient = fmt.Errorf("not a recipient, the data is not encrypted for your public key")

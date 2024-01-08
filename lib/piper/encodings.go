@@ -99,7 +99,9 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 		W: NopCloser(w),
 	}
 
-	// https://www.rfc-editor.org/rfc/rfc4880#section-5.13
+	// AES is resistant to known-plaintext attack.
+	// We use this guard to tell if the key is correct or not before the decryption.
+	// The change of failing to detect wrong key is 1/(2^(a.Guard * 8)).
 	_, err = s.Write(iv[:a.Guard])
 	if err != nil {
 		return nil, err
