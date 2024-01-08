@@ -4,8 +4,15 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"encoding/base64"
+	"encoding/pem"
+	"fmt"
+	"os"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func PublicKeyHash(pub crypto.PublicKey) []byte {
@@ -73,4 +80,36 @@ func bytesToKeys(private []byte, passphrase string, publics [][]byte) (crypto.Pr
 	}
 
 	return prv, pubs, nil
+}
+
+// GenerateKeyFile generates a new ssh key pair.
+func GenerateKeyFile(privateKeyPath, comment, passphrase string) error {
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+
+	sshPubKey, err := ssh.NewPublicKey(publicKey)
+	if err != nil {
+		return err
+	}
+
+	pubKeyString := fmt.Sprintf("%s %s %s\n",
+		sshPubKey.Type(),
+		base64.StdEncoding.EncodeToString(sshPubKey.Marshal()),
+		comment,
+	)
+	err = os.WriteFile(privateKeyPath+".pub", []byte(pubKeyString), 0o644)
+	if err != nil {
+		return err
+	}
+
+	prvKeyPem, err := ssh.MarshalPrivateKeyWithPassphrase(privateKey, comment, []byte(passphrase))
+	if err != nil {
+		return err
+	}
+
+	prvKeyBytes := pem.EncodeToMemory(prvKeyPem)
+
+	return os.WriteFile(privateKeyPath, prvKeyBytes, 0o600)
 }

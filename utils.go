@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"fmt"
@@ -19,8 +20,12 @@ func exit(err error) {
 	os.Exit(1)
 }
 
-func readPassphrase(location string) string {
-	fmt.Fprintf(os.Stderr, "Please enter passphrase for private key %s: ", location)
+func getPassphrase(location string) string {
+	return readPassphrase(fmt.Sprintf("Enter passphrase for private key %s: ", location))
+}
+
+func readPassphrase(prompt string) string {
+	fmt.Fprint(os.Stderr, prompt)
 
 	fd := int(os.Stdin.Fd())
 
@@ -36,6 +41,19 @@ func readPassphrase(location string) string {
 	fmt.Fprintln(os.Stderr)
 
 	return string(inputPass)
+}
+
+func readLine(prompt string) string {
+	fmt.Fprint(os.Stderr, prompt)
+
+	reader := bufio.NewReader(os.Stdin)
+
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		exit(err)
+	}
+
+	return strings.TrimSpace(line)
 }
 
 func getInput(path, defaultPath string) io.ReadCloser {

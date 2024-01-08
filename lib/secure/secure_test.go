@@ -2,6 +2,7 @@ package secure_test
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/x509"
 	"testing"
 
@@ -227,4 +228,22 @@ func TestBelongs(t *testing.T) {
 	)
 	g.E(err)
 	g.True(ok)
+}
+
+func TestGenerateKeyFile(t *testing.T) {
+	g := got.T(t)
+
+	g.MkdirAll(0, "tmp")
+
+	p := "tmp/id_ed25519"
+
+	g.E(secure.GenerateKeyFile(p, "pc", "pass"))
+
+	pub, err := secure.SSHPubKey(g.Read(p + ".pub").Bytes())
+	g.E(err)
+	g.Is(pub, ed25519.PublicKey{})
+
+	prv, err := secure.SSHPrvKey(g.Read(p).Bytes(), "pass")
+	g.E(err)
+	g.Is(prv, ed25519.PrivateKey{})
 }

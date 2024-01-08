@@ -1,6 +1,7 @@
 package main
 
-var USAGE = `  Usage:
+var USAGE = `
+  Usage:
 
 	whisper [options] [input file]
 

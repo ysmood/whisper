@@ -30,25 +30,25 @@ go install github.com/ysmood/whisper@latest
 
 ### Usage
 
-Here is a simple example to encrypt and decrypt for yourself, the encrypted data can only be decrypted by your private key.
+Here is a simple example to encrypt and decrypt for yourself. The encrypted data can only be decrypted by your private key.
 
 ```bash
-# generate a key pair
-ssh-keygen -t ed25519 -N "" -f id_ed25519
+# Skip this if already have a key pair.
+whisper -gen-key ~/.ssh/id_ed25519
 
 echo 'hello world!' > hello.txt
 
 # Encrypt file hello.txt to a whisper file hello.wsp .
 # It will auto start a agent server to cache the passphrase so you don't have to retype it.
-whisper -e='id_ed25519.pub' hello.txt > hello.wsp
+whisper -e='~/.ssh/id_ed25519.pub' hello.txt > hello.wsp
 
-# Decrypt file encrypted to stdout
-whisper -p='id_ed25519' hello.wsp
+# Decrypt file encrypted to stdout.
+whisper hello.wsp
 # hello world!
 
-# You can also use it as a pipe
-cat hello.txt | whisper -e='id_ed25519.pub' > hello.wsp
-cat hello.wsp | whisper -p='id_ed25519'
+# Piping is also supported.
+cat hello.txt | whisper -e='~/.ssh/id_ed25519.pub' > hello.wsp
+cat hello.wsp | whisper
 ```
 
 You can also use a url for a remote public key file.
@@ -56,7 +56,7 @@ Here we use my public key on github to encrypt the data.
 Github generally exposes your public key file at `@https://github.com/{YOUR_ID}.keys`.
 
 ```bash
-# For github you can use the user id directly.
+# For github, you can use the user id directly.
 # Here the user id is 'ysmood'.
 whisper -e='@ysmood' hello.txt > hello.wsp
 

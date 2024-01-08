@@ -100,7 +100,7 @@ func agentAddPassphrase(path string) {
 
 	if !agentCheckPassphrase(whisper.PrivateKey{
 		Data:       prv,
-		Passphrase: readPassphrase(path),
+		Passphrase: getPassphrase(path),
 	}) {
 		exit(ErrWrongPassphrase)
 	}

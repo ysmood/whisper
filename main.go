@@ -12,6 +12,7 @@ import (
 
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
+	"github.com/ysmood/whisper/lib/secure"
 )
 
 func main() { //nolint: funlen
@@ -63,6 +64,8 @@ func main() { //nolint: funlen
 	inputFile := flags.String("i", "", "Input encryption/decryption from the specified file or https url.")
 	outputFile := flags.String("o", "", "Output encryption/decryption to the specified file.")
 
+	genKeyFile := flags.String("gen-key", "", "Generate a key pair and save to the specified path.")
+
 	err := flags.Parse(os.Args[1:])
 	if err != nil {
 		exit(err)
@@ -70,6 +73,11 @@ func main() { //nolint: funlen
 
 	if *version {
 		fmt.Println(whisper.APIVersion)
+		return
+	}
+
+	if *genKeyFile != "" {
+		genKey(*genKeyFile)
 		return
 	}
 
@@ -196,7 +204,7 @@ func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *w
 func ensurePassphrase(private whisper.PrivateKey, location string) *whisper.PrivateKey {
 	if isAgentServerRunning() {
 		if !agentCheckPassphrase(private) {
-			private.Passphrase = readPassphrase(location)
+			private.Passphrase = getPassphrase(location)
 		}
 	} else {
 		right, err := whisper.IsPassphraseRight(private)
@@ -205,7 +213,7 @@ func ensurePassphrase(private whisper.PrivateKey, location string) *whisper.Priv
 		}
 
 		if !right {
-			private.Passphrase = readPassphrase(location)
+			private.Passphrase = getPassphrase(location)
 		}
 	}
 
@@ -245,4 +253,30 @@ func fetchPublicKey(location string) whisper.PublicKey {
 	cache(location, key.Data)
 
 	return *key
+}
+
+var errPrvKeyExists = fmt.Errorf("private key already exists")
+
+func genKey(path string) {
+	if _, err := os.Stat(path); err == nil {
+		exit(fmt.Errorf("%w: you have to remove it first", errPrvKeyExists))
+	}
+
+	pass := readPassphrase("Enter passphrase (empty for no passphrase): ")
+	if pass != "" {
+		for {
+			p := readPassphrase("Enter same passphrase again: ")
+			if pass == p {
+				break
+			}
+			fmt.Fprintln(os.Stderr, "Passphrases didn't match, try again.")
+		}
+	}
+
+	comment := readLine("Enter the comment for it: ")
+
+	err := secure.GenerateKeyFile(path, comment, pass)
+	if err != nil {
+		exit(err)
+	}
 }
