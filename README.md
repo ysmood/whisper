@@ -77,6 +77,9 @@ whisper hello.wsp
 # To sign and encrypt the data, you can use the `-s` flag.
 whisper -s='@ysmood' -e='@jack' hello.txt > hello.wsp
 
+# Print the meta data of the whisper file to see who is the sender.
+whisper -m hello.wsp
+
 # To verify the signature and decrypt the data.
 # If -s flag is not provided, it will only decrypt the data.
 whisper -s='@ysmood' hello.wsp

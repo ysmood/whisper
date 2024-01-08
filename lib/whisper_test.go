@@ -171,7 +171,7 @@ func TestMeta(t *testing.T) {
 	g.E(err)
 	g.True(has)
 
-	g.Eq(meta.String(), "wire-format: v4, sender: \"test:abc\", recipients: [13c1f8a1 9b21f010], gzip: true, sign: true")
+	g.Snapshot("meta string", meta.String())
 }
 
 func keyPair(privateKeyName, passphrase string) (whisper.PrivateKey, whisper.PublicKey) {

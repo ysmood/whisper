@@ -201,12 +201,12 @@ func (m Meta) String() string {
 	}
 
 	return fmt.Sprintf(
-		"wire-format: v%d, sender: \"%s\", recipients: %v, gzip: %v, sign: %v",
+		"wire-format: v%d\nsign: %v\nsender: \"%s\"\nrecipients: %v\ngzip: %v",
 		WireFormatVersion,
+		m.Sign,
 		sender,
 		recipients,
 		m.Gzip,
-		m.Sign,
 	)
 }
 

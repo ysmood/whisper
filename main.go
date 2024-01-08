@@ -29,7 +29,8 @@ func main() { //nolint: funlen
 	launchAgent := flags.Bool("agent", false, "Launch the background agent server if it's not running.")
 
 	asAgentServer := flags.Bool(AS_AGENT_FLAG, false,
-		"Run as agent server, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.")
+		"Run as agent server, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.\n"+
+			"If WHISPER_AGENT_ADDR is not set, "+WHISPER_AGENT_ADDR_DEFAULT+" will be used.")
 
 	addPassphrase := flags.String("add", "", "Add the key's passphrase to the agent cache.\n"+
 		"It will also launch the agent server like -agent flag")
