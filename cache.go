@@ -13,9 +13,11 @@ func cacheClear() {
 		exit(err)
 	}
 
-	err = agent().ClearCache()
-	if err != nil {
-		exit(err)
+	if isAgentServerRunning() {
+		err = agent().ClearCache()
+		if err != nil {
+			exit(err)
+		}
 	}
 }
 
