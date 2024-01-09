@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 )
@@ -29,25 +30,40 @@ func cacheFilePath(key string) string {
 	return filepath.Join(cacheDir(), hex.EncodeToString([]byte(key)))
 }
 
-func cache(key string, data []byte) {
+func cache(key string, data any) {
+	b, err := json.Marshal(data)
+	if err != nil {
+		exit(err)
+	}
+
 	// Ensure the cache directory exists
-	err := os.MkdirAll(cacheDir(), 0o755)
+	err = os.MkdirAll(cacheDir(), 0o755)
 	if err != nil {
 		exit(err)
 	}
 
 	// Write the data to the cache file
-	err = os.WriteFile(cacheFilePath(key), data, 0o644)
+	err = os.WriteFile(cacheFilePath(key), b, 0o644)
 	if err != nil {
 		exit(err)
 	}
 }
 
-func getCache(key string) string {
+func getCache(key string, data any) bool {
 	p := cacheFilePath(key)
 	if _, err := os.Stat(p); err != nil {
-		return ""
+		return false
 	}
 
-	return p
+	b, err := os.ReadFile(p)
+	if err != nil {
+		exit(err)
+	}
+
+	err = json.Unmarshal(b, data)
+	if err != nil {
+		exit(err)
+	}
+
+	return true
 }

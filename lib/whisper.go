@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	APIVersion        = "v0.7.1"
-	WireFormatVersion = byte(6)
+	APIVersion        = "v0.8.0"
+	WireFormatVersion = byte(7)
 )
 
 type PrivateKey struct {
@@ -26,6 +26,10 @@ type PrivateKey struct {
 type PublicKey struct {
 	Data []byte
 
+	Meta PublicKeyMeta
+}
+
+type PublicKeyMeta struct {
 	// A public ID for the public key, it can be a https url or github id.
 	ID string
 
@@ -34,37 +38,38 @@ type PublicKey struct {
 	Selector string
 }
 
-var ErrPubKeyNotFound = errors.New("public key not found")
-
-func PublicKeyFromMeta(m string) PublicKey {
-	i := strings.LastIndex(m, ":")
+func NewPublicKeyMeta(m string) PublicKeyMeta {
+	i := strings.LastIndex(strings.TrimPrefix(m, "https://"), ":")
 
 	if i == -1 {
-		return PublicKey{ID: m}
+		return PublicKeyMeta{ID: m}
 	}
 
-	return PublicKey{
+	return PublicKeyMeta{
 		ID:       m[:i],
 		Selector: m[i+1:],
 	}
 }
 
+func (k PublicKeyMeta) String() string {
+	list := []string{k.ID}
+	if k.Selector != "" {
+		list = append(list, k.Selector)
+	}
+	return strings.Join(list, ":")
+}
+
+var ErrPubKeyNotFound = errors.New("public key not found")
+
 // Select the line in Data contains the Selector.
 func (k PublicKey) Select() ([]byte, error) {
 	for _, l := range splitIntoLines(k.Data) {
-		if strings.Contains(l, k.Selector) {
+		if strings.Contains(l, k.Meta.Selector) {
 			return []byte(l), nil
 		}
 	}
 
-	return nil, fmt.Errorf("%w: %v", ErrPubKeyNotFound, k.Meta())
-}
-
-func (k PublicKey) Meta() string {
-	if k.ID == "" {
-		return ""
-	}
-	return fmt.Sprintf("%s:%s", k.ID, k.Selector)
+	return nil, fmt.Errorf("%w: \"%v\"", ErrPubKeyNotFound, k.Meta.String())
 }
 
 type Config struct {

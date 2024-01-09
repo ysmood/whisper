@@ -46,7 +46,7 @@ func TestBasic(t *testing.T) {
 	})
 	g.E(err)
 
-	g.Len(encrypted, 268)
+	g.Len(encrypted, 272)
 
 	decrypted01, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	g.E(err)
@@ -126,11 +126,11 @@ func TestPubKeyHashList(t *testing.T) {
 
 	conf := whisper.Config{Public: []whisper.PublicKey{recipient01Pub, recipient02Pub}}
 
-	long, list, err := conf.PubKeyHashList()
+	long, list, err := conf.Recipients()
 	g.E(err)
 
 	g.False(long)
-	g.Len(list[0], 4)
+	g.Len(list[0], 5)
 	g.Snapshot("hash list", list)
 }
 
@@ -142,11 +142,11 @@ func TestPubKeyLongHashList(t *testing.T) {
 
 	conf := whisper.Config{Public: []whisper.PublicKey{recipient01Pub, recipient02Pub}}
 
-	long, list, err := conf.PubKeyHashList()
+	long, list, err := conf.Recipients()
 	g.E(err)
 
 	g.True(long)
-	g.Len(list[0], secure.KEY_HASH_SIZE)
+	g.Len(list[0], secure.KEY_HASH_SIZE+1)
 	g.Snapshot("hash list", list)
 }
 
@@ -156,12 +156,16 @@ func TestMeta(t *testing.T) {
 	sender01, recipient01Pub := keyPair("id_ecdsa01", "test")
 	sender02, recipient02Pub := keyPair("id_ecdsa02", "test")
 
+	recipient01Pub.Meta = whisper.NewPublicKeyMeta("bot:lzdHAyN")
+
 	conf := whisper.Config{
 		GzipLevel: 1,
 		Private:   &sender01,
 		Sign: &whisper.PublicKey{
-			ID:       "test",
-			Selector: "abc",
+			Meta: whisper.PublicKeyMeta{
+				ID:       "test",
+				Selector: "abc",
+			},
 		},
 		Public: []whisper.PublicKey{recipient01Pub, recipient02Pub},
 	}
@@ -208,20 +212,20 @@ func TestFetchPublicKey(t *testing.T) {
 	g := got.T(t)
 
 	{
-		pub, err := whisper.FetchPublicKey("secure/test_data/id_ecdsa01.pub")
+		pub, err := whisper.FetchPublicKey("https://github.com/ysmood.keys")
 		g.E(err)
 
-		g.Has(string(pub.Data), "ecdsa")
-		g.Eq(pub.ID, "")
-		g.Eq(pub.Selector, "")
+		g.Has(string(pub.Data), "ed25519")
+		g.Eq(pub.Meta.ID, "https://github.com/ysmood.keys")
+		g.Eq(pub.Meta.Selector, "")
 	}
 
 	{
-		pub, err := whisper.FetchPublicKey("@ysmood:ssh")
+		pub, err := whisper.FetchPublicKey("ysmood:ssh")
 		g.E(err)
 
 		g.Has(string(pub.Data), "ssh")
-		g.Eq(pub.ID, "ysmood")
-		g.Eq(pub.Selector, "ssh")
+		g.Eq(pub.Meta.ID, "ysmood")
+		g.Eq(pub.Meta.Selector, "ssh")
 	}
 }

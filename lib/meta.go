@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/secure"
@@ -21,17 +22,18 @@ const (
 
 // The meta format is:
 //
-//	[version][flags][sender][key num][key2 hash]...
+//	[version][flags][signer][key num][keyInfo1][keyInfo2]...
 //
 // "version" is the whisper file format version.
 // "flags" about the encoding, such as if gzip, base64 are enabled or not.
-// "sender" is the sender's public key [PublicKey.ID] and [PublicKey.Selector].
+// "signer" is the signer's public key [PublicKey.ID] and [PublicKey.Selector].
 // "key num" is the num of recipients.
-// "key1 hash" is the hash of the first recipient's public key.
-// "key2 hash" is the hash of the second recipient's public key.
+// "keyInfo1" is the first recipient's public key info.
+// "keyInfo2" is the second recipient's public key info.
 // ...
+// The key info format is: [public key hash][public key meta].
 func (c Config) EncodeMeta(out io.Writer) error {
-	long, keyHashList, err := c.PubKeyHashList()
+	long, keyHashList, err := c.Recipients()
 	if err != nil {
 		return err
 	}
@@ -45,7 +47,7 @@ func (c Config) EncodeMeta(out io.Writer) error {
 
 	// sender
 	if c.Sign != nil {
-		buf = append(buf, byframe.Encode([]byte(c.Sign.Meta()))...)
+		buf = append(buf, byframe.Encode([]byte(c.Sign.Meta.String()))...)
 	}
 
 	// key num
@@ -67,15 +69,20 @@ type Meta struct {
 	Sign           bool
 	LongPubKeyHash bool
 
-	Sender *PublicKey
+	Sender *PublicKeyMeta
 
 	// The key is the hash of the recipient's public key, value is the index of the recipient in the key list.
-	Recipients map[string]int
+	Recipients map[string]Recipient
+}
+
+type Recipient struct {
+	Index int
+	Meta  PublicKeyMeta
 }
 
 // DecodeMeta decodes the meta from the whisper file.
 func DecodeMeta(in io.Reader) (*Meta, error) {
-	meta := Meta{Recipients: map[string]int{}}
+	meta := Meta{Recipients: map[string]Recipient{}}
 	scanner := byframe.NewScanner(in)
 	oneByte := make([]byte, 1)
 
@@ -119,8 +126,8 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 			return nil, err
 		}
 
-		key := PublicKeyFromMeta(string(sender))
-		meta.Sender = &key
+		keyMeta := NewPublicKeyMeta(string(sender))
+		meta.Sender = &keyMeta
 	}
 
 	// key list
@@ -141,7 +148,14 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 				return nil, err
 			}
 
-			meta.Recipients[string(key)] = i
+			b, err := scanner.Next()
+			if err != nil {
+				return nil, err
+			}
+
+			keyMeta := NewPublicKeyMeta(string(b))
+
+			meta.Recipients[string(key)] = Recipient{Index: i, Meta: keyMeta}
 		}
 	}
 
@@ -168,8 +182,8 @@ func (m Meta) GetIndex(p PrivateKey) (int, error) {
 		return 0, err
 	}
 
-	if i, has := m.Recipients[string(h[:m.HashSize()])]; has {
-		return i, nil
+	if r, has := m.Recipients[string(h[:m.HashSize()])]; has {
+		return r.Index, nil
 	}
 
 	return 0, secure.ErrNotRecipient
@@ -197,17 +211,21 @@ func (m Meta) HasPubKey(p PublicKey) (bool, error) {
 
 func (m Meta) String() string {
 	recipients := make([]string, len(m.Recipients))
-	for hash, i := range m.Recipients {
-		recipients[i] = hex.EncodeToString([]byte(hash))
+	for hash, r := range m.Recipients {
+		list := []string{hex.EncodeToString([]byte(hash))}
+		if r.Meta.String() != "" {
+			list = append([]string{r.Meta.String()}, list...)
+		}
+		recipients[r.Index] = strings.Join(list, ":")
 	}
 
 	sender := ""
 	if m.Sender != nil {
-		sender = m.Sender.Meta()
+		sender = m.Sender.String()
 	}
 
 	return fmt.Sprintf(
-		"wire-format: v%d\nsign: %v\nsender: \"%s\"\nrecipients: %v\ngzip: %v",
+		"wire-format: v%d\nsign: %v\nsigner: \"%s\"\nrecipients: %v\ngzip: %v",
 		WireFormatVersion,
 		m.Sign,
 		sender,
@@ -234,7 +252,7 @@ func (c Config) genFlags(long bool) byte {
 	return byte(flags)
 }
 
-func (c Config) PubKeyHashList() (bool, [][]byte, error) {
+func (c Config) Recipients() (bool, [][]byte, error) {
 	hashList := [][]byte{}
 	shortList := map[string]struct{}{}
 	const size = 4
@@ -267,5 +285,11 @@ func (c Config) PubKeyHashList() (bool, [][]byte, error) {
 		}
 	}
 
-	return long, hashList, nil
+	recipients := [][]byte{}
+	for i, h := range hashList {
+		keyMeta := byframe.Encode([]byte(c.Public[i].Meta.String()))
+		recipients = append(recipients, append(h, keyMeta...))
+	}
+
+	return long, recipients, nil
 }

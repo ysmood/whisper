@@ -204,31 +204,15 @@ func splitIntoLines(text []byte) []string {
 	return lines
 }
 
-// FetchPublicKey from the location, it can be a local file path, github id or a remote url.
-// Only remote file will have [PublicKey.ID] and [PublicKey.Selector].
+// FetchPublicKey from github id or a remote url.
 func FetchPublicKey(location string) (*PublicKey, error) {
-	location, remote := ExtractRemotePublicKey(location)
-	location, sel := extractPublicKeySelector(location)
-
-	var key []byte
-	var err error
-	var id, selector string
-	if remote {
-		key, err = getRemotePublicKey(location)
-		id = location
-		selector = sel
-	} else {
-		key, err = ReadKey(location)
-	}
+	meta := NewPublicKeyMeta(location)
+	key, err := getRemotePublicKey(meta.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(key) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrPubKeyNotFound, location)
-	}
-
-	return &PublicKey{Data: key, ID: id, Selector: selector}, nil
+	return &PublicKey{Data: key, Meta: meta}, nil
 }
 
 func getRemotePublicKey(p string) ([]byte, error) {
@@ -254,20 +238,4 @@ func toPublicKeyURL(p string) string {
 	}
 
 	return fmt.Sprintf("https://github.com/%s.keys", p)
-}
-
-func ExtractRemotePublicKey(p string) (string, bool) {
-	if strings.HasPrefix(p, "@") {
-		return p[1:], true
-	}
-
-	return p, false
-}
-
-func extractPublicKeySelector(p string) (string, string) {
-	sel := PublicKeyFromMeta(strings.TrimPrefix(p, "https://")).Selector
-	if sel == "" {
-		return p, ""
-	}
-	return p[:len(p)-len(sel)-1], sel
 }

@@ -3,12 +3,23 @@
   "Sign": true,
   "LongPubKeyHash": false,
   "Sender": {
-    "Data": null,
     "ID": "test",
     "Selector": "abc"
   },
   "Recipients": {
-    "\ufffd\ufffdFY": 0,
-    "\ufffd\ufffd\ufffdR": 1
+    "\ufffd\ufffdFY": {
+      "Index": 0,
+      "Meta": {
+        "ID": "bot",
+        "Selector": "lzdHAyN"
+      }
+    },
+    "\ufffd\ufffd\ufffdR": {
+      "Index": 1,
+      "Meta": {
+        "ID": "",
+        "Selector": ""
+      }
+    }
   }
 }

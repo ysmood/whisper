@@ -1,1 +1,1 @@
-"wire-format: v6\nsign: true\nsender: \"test:abc\"\nrecipients: [a1d24659 bbf99652]\ngzip: true"
+"wire-format: v7\nsign: true\nsigner: \"test:abc\"\nrecipients: [bot:lzdHAyN:a1d24659 bbf99652]\ngzip: true"

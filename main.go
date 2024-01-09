@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
@@ -240,19 +241,31 @@ func getPublicKeys(paths []string) []whisper.PublicKey {
 }
 
 func fetchPublicKey(location string) whisper.PublicKey {
-	loc := location
-	if p := getCache(location); p != "" {
-		loc = p
+	var remote bool
+	location, remote = extractRemotePublicKey(location)
+
+	if remote {
+		key := &whisper.PublicKey{}
+		if has := getCache(location, key); has {
+			return *key
+		}
+
+		key, err := whisper.FetchPublicKey(location)
+		if err != nil {
+			exit(fmt.Errorf("failed to fetch public key: %w", err))
+		}
+
+		cache(location, key)
+
+		return *key
 	}
 
-	key, err := whisper.FetchPublicKey(loc)
+	b, err := whisper.ReadKey(location)
 	if err != nil {
-		exit(fmt.Errorf("failed to fetch public key: %w", err))
+		exit(err)
 	}
 
-	cache(location, key.Data)
-
-	return *key
+	return whisper.PublicKey{Data: b}
 }
 
 var errPrvKeyExists = fmt.Errorf("private key already exists")
@@ -279,4 +292,12 @@ func genKey(path string) {
 	if err != nil {
 		exit(err)
 	}
+}
+
+func extractRemotePublicKey(p string) (string, bool) {
+	if strings.HasPrefix(p, "@") {
+		return p[1:], true
+	}
+
+	return p, false
 }
