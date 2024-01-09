@@ -92,11 +92,7 @@ func getOutput(file string) io.WriteCloser {
 		exit(err)
 	}
 
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		exit(err)
-	}
-	return f
+	return newLazyFileWriter(file)
 }
 
 type publicKeysFlag []string
@@ -116,4 +112,30 @@ func isBase64(in io.Reader) bool {
 
 	_, err := io.Copy(buf, dec)
 	return err == nil
+}
+
+type lazyFileWriter struct {
+	path string
+	file *os.File
+}
+
+func (w *lazyFileWriter) Write(p []byte) (n int, err error) {
+	if w.file == nil {
+		w.file, err = os.OpenFile(w.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return w.file.Write(p)
+}
+
+func (w *lazyFileWriter) Close() error {
+	if w.file != nil {
+		return w.file.Close()
+	}
+	return nil
+}
+
+func newLazyFileWriter(path string) *lazyFileWriter {
+	return &lazyFileWriter{path: path}
 }
