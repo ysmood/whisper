@@ -28,7 +28,7 @@ If you have golang installed:
 go install github.com/ysmood/whisper@latest
 ```
 
-### Usage
+### Encrypt and decrypt with local keys
 
 Here is a simple example to encrypt and decrypt for yourself. The encrypted data can only be decrypted by your private key.
 
@@ -50,6 +50,8 @@ whisper hello.wsp
 cat hello.txt | whisper -e='~/.ssh/id_ed25519.pub' > hello.wsp
 cat hello.wsp | whisper
 ```
+
+### Encrypt and decrypt with remote keys
 
 You can also use a url for a remote public key file.
 Here we use my public key on github to encrypt the data.
@@ -83,4 +85,67 @@ whisper -m hello.wsp
 # To verify the signature and decrypt the data.
 # If -s flag is not provided, it will only decrypt the data.
 whisper -s='@ysmood' hello.wsp
+```
+
+The input can also be file url.
+
+### Agent and cache
+
+The agent server is used to cache the private key passphrase, so you don't have to retype it every time.
+
+```bash
+# Add the key to the agent.
+whisper -add ~/.ssh/id_ed25519
+```
+
+### Batch encrypt and decrypt
+
+Create a json file `vault.json` with the content:
+
+```json
+{
+  "files": {
+    "secrets/backend": ["@jack"],
+    "secrets/db.txt": ["@tom"]
+  },
+  "outDir": "vault"
+}
+```
+
+Then run:
+
+```bash
+whisper -be vault.json
+```
+
+It will encrypt the files in folder `secrets/backend` for Jack and encrypt file `secrets/db.txt` for Tom,
+the encrypted files will be stored in folder `vault`.
+
+To decrypt in batch, run:
+
+```bash
+whisper -bd vault.json
+```
+
+Or you can decrypt a single file directly:
+
+```bash
+whisper vault/secrets/db.txt.wsp
+```
+
+If you have a lot of members to manage, the batch config file supports grouping,
+the `$` prefix means a group name:
+
+```json
+{
+  "groups": {
+    "$frontend": ["@mike", "@tim"],
+    "$backend": ["$frontend", "@jack"]
+  },
+  "files": {
+    "secrets/backend": ["$backend"],
+    "secrets/frontend": ["$frontend", "@tom"]
+  },
+  "outDir": "vault"
+}
 ```

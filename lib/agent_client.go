@@ -54,7 +54,7 @@ func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 
 	eg.Go(func() error {
 		_, err = io.Copy(out, stream)
-		if err != nil { //nolint: nestif
+		if err != nil {
 			var endErr piper.EndErrors
 			if errors.As(err, &endErr) {
 				var ae AgentError
@@ -63,11 +63,14 @@ func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 					return err
 				}
 
-				if ae.Type == AgentErrorTypeSignMismatch {
+				switch ae.Type {
+				case AgentErrorTypeSignMismatch:
 					return secure.ErrSignMismatch
+				case AgentErrorTypeNotRecipient:
+					return secure.ErrNotRecipient
+				case AgentErrorTypeOthers:
+					return ae
 				}
-
-				return ae
 			}
 
 			return err

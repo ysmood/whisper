@@ -74,18 +74,15 @@ func agentCheckPassphrase(prv whisper.PrivateKey) bool {
 	return r
 }
 
-func agentWhisper(conf whisper.Config, in io.ReadCloser, out io.WriteCloser) {
+func agentWhisper(conf whisper.Config, in io.ReadCloser, out io.WriteCloser) error {
 	defer func() { _ = in.Close() }()
 	defer func() { _ = out.Close() }()
 
 	err := agent().Whisper(conf, in, out)
-	if err != nil {
-		if conf.Sign == nil && errors.Is(err, secure.ErrSignMismatch) {
-			return
-		}
-
-		exit(err)
+	if conf.Sign == nil && errors.Is(err, secure.ErrSignMismatch) {
+		return nil
 	}
+	return err
 }
 
 var ErrWrongPassphrase = errors.New("wrong passphrase")

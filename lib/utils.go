@@ -19,6 +19,9 @@ import (
 )
 
 func (w *Whisper) Handle(input io.ReadCloser, output io.WriteCloser) error {
+	defer func() { _ = input.Close() }()
+	defer func() { _ = output.Close() }()
+
 	if w.conf.IsDecryption() {
 		dec, err := w.Decoder(input)
 		if err != nil {

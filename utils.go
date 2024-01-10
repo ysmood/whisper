@@ -139,3 +139,24 @@ func (w *lazyFileWriter) Close() error {
 func newLazyFileWriter(path string) *lazyFileWriter {
 	return &lazyFileWriter{path: path}
 }
+
+// remove duplicated strings in the sorted slice.
+func uniqueStrings(sorted []string) []string {
+	if len(sorted) == 0 {
+		return sorted
+	}
+
+	last := sorted[0]
+	unique := []string{last}
+
+	for _, s := range sorted[1:] {
+		if s == last {
+			continue
+		}
+
+		last = s
+		unique = append(unique, s)
+	}
+
+	return unique
+}

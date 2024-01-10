@@ -32,6 +32,7 @@ type AgentErrorType int
 const (
 	AgentErrorTypeOthers AgentErrorType = iota
 	AgentErrorTypeSignMismatch
+	AgentErrorTypeNotRecipient
 )
 
 type AgentError struct {
@@ -97,8 +98,11 @@ func (a *AgentServer) Listen(l net.Listener) {
 			err := a.Handle(s)
 			if err != nil {
 				typ := AgentErrorTypeOthers
-				if errors.Is(err, secure.ErrSignMismatch) {
+				switch {
+				case errors.Is(err, secure.ErrSignMismatch):
 					typ = AgentErrorTypeSignMismatch
+				case errors.Is(err, secure.ErrNotRecipient):
+					typ = AgentErrorTypeNotRecipient
 				}
 
 				err := s.End(AgentError{Type: typ, Message: err.Error()})

@@ -16,7 +16,7 @@ import (
 	"github.com/ysmood/whisper/lib/secure"
 )
 
-func main() { //nolint: funlen
+func main() { //nolint: funlen,gocyclo,cyclop
 	flags := flag.NewFlagSet("whisper", flag.ExitOnError)
 
 	flags.Usage = func() {
@@ -67,6 +67,9 @@ func main() { //nolint: funlen
 
 	genKeyFile := flags.String("gen-key", "", "Generate a key pair and save to the specified path.")
 
+	batchEncrypt := flags.String("be", "", "Encrypt all files in the batch config file.")
+	batchDecrypt := flags.String("bd", "", "Decrypt all files in the batch config file.")
+
 	err := flags.Parse(os.Args[1:])
 	if err != nil {
 		exit(err)
@@ -102,6 +105,16 @@ func main() { //nolint: funlen
 		return
 	}
 
+	if *batchEncrypt != "" {
+		runBatch(false, *batchEncrypt, "")
+		return
+	}
+
+	if *batchDecrypt != "" {
+		runBatch(true, *batchDecrypt, *privateKey)
+		return
+	}
+
 	decrypt := len(publicKeys) == 0
 
 	input := getInput(*inputFile, flags.Arg(0))
@@ -134,15 +147,18 @@ func main() { //nolint: funlen
 		Public:    getPublicKeys(publicKeys),
 	}
 
-	if isAgentServerRunning() {
-		agentWhisper(conf, input, output)
-		return
-	}
-
-	err = whisper.New(conf).Handle(input, output)
+	err = run(conf, input, output)
 	if err != nil {
 		exit(err)
 	}
+}
+
+func run(conf whisper.Config, input io.ReadCloser, output io.WriteCloser) error {
+	if isAgentServerRunning() {
+		return agentWhisper(conf, input, output)
+	}
+
+	return whisper.New(conf).Handle(input, output)
 }
 
 func getMeta(input io.ReadCloser) (*whisper.Meta, io.ReadCloser) {
@@ -300,4 +316,20 @@ func extractRemotePublicKey(p string) (string, bool) {
 	}
 
 	return p, false
+}
+
+func runBatch(decrypt bool, path string, privateKey string) {
+	b, err := NewBatch(path)
+	if err != nil {
+		exit(err)
+	}
+
+	if decrypt {
+		err = b.Decrypt(privateKey)
+	} else {
+		err = b.Encrypt()
+	}
+	if err != nil {
+		exit(err)
+	}
 }
