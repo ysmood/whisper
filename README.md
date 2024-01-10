@@ -91,11 +91,18 @@ The input can also be file url.
 
 ### Agent and cache
 
-The agent server is used to cache the private key passphrase, so you don't have to retype it every time.
+The agent server is for caching the private key passphrase, so you don't have to retype it every time.
+To start the agent server, run:
 
 ```bash
 # Add the key to the agent.
 whisper -add ~/.ssh/id_ed25519
+```
+
+To remove the key from the agent, run:
+
+```bash
+whisper -clear-cache
 ```
 
 ### Batch encrypt and decrypt
@@ -136,15 +143,17 @@ whisper vault/secrets/db.txt.wsp
 If you have a lot of members to manage, the batch config file supports grouping,
 the `$` prefix means a group name:
 
-```json
+```jsonc
 {
   "groups": {
     "$frontend": ["@mike", "@tim"],
-    "$backend": ["$frontend", "@jack"]
+    "$backend": ["$frontend", "@jack"] // group reference can be recursive
   },
+  "admins": ["@ci-robot"], // the users who can decrypt all the files
   "files": {
     "secrets/backend": ["$backend"],
-    "secrets/frontend": ["$frontend", "@tom"]
+    "secrets/frontend": ["$frontend", "@tom"],
+    "secrets/frontend/mongo": ["@joy"] // add the user to the file that is already set by previous line
   },
   "outDir": "vault"
 }

@@ -18,6 +18,7 @@ import (
 
 type Batch struct {
 	Groups map[string][]string `json:"groups"`
+	Admins []string            `json:"admins"`
 	Files  map[string][]string `json:"files"`
 	OutDir string              `json:"outDir"`
 
@@ -109,6 +110,7 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit
 
 	for p, members := range b.Files {
 		expanded := []string{}
+		members = append(members, b.Admins...)
 		for _, member := range members {
 			if strings.HasPrefix(member, "$") {
 				if _, ok := groups[member]; !ok {
@@ -150,14 +152,14 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit
 					return err
 				}
 
-				expanded[path] = members
+				expanded[path] = append(expanded[path], members...)
 				return nil
 			})
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			expanded[p] = members
+			expanded[p] = append(expanded[p], members...)
 		}
 	}
 
