@@ -114,8 +114,7 @@ Create a json file `vault.json` with the content:
   "files": {
     "secrets/backend": ["@jack"],
     "secrets/db.txt": ["@tom"]
-  },
-  "outDir": "vault"
+  }
 }
 ```
 
@@ -126,7 +125,7 @@ whisper -be vault.json
 ```
 
 It will encrypt the files in folder `secrets/backend` for Jack and encrypt file `secrets/db.txt` for Tom,
-the encrypted files will be stored in folder `vault`.
+the encrypted files will be stored in folder `vault` by default.
 
 To decrypt in batch, run:
 
