@@ -203,9 +203,14 @@ func (b *Batch) Encrypt() error {
 				return nil
 			}
 
+			err = run(conf, input, output)
+			if err != nil {
+				return err
+			}
+
 			fmt.Fprintf(os.Stdout, "[encrypted] %s -> %s\n", inPath, outPath)
 
-			return run(conf, input, output)
+			return nil
 		})
 	}
 
