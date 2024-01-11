@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 
 	"golang.org/x/crypto/argon2"
@@ -123,4 +124,10 @@ func GenerateKeyFile(deterministic bool, privateKeyPath, comment, passphrase str
 	prvKeyBytes := pem.EncodeToMemory(prvKeyPem)
 
 	return os.WriteFile(privateKeyPath, prvKeyBytes, 0o600)
+}
+
+func bigIntToBytes(a *big.Int, padding int) []byte {
+	buf := make([]byte, padding)
+	copy(buf[padding-len(a.Bytes()):], a.Bytes())
+	return buf
 }

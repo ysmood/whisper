@@ -158,9 +158,11 @@ func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error)
 			return nil, err
 		}
 
+		size := key.Curve.Params().BitSize / 8
+
 		return bytes.Join([][]byte{
-			ephemeral.PublicKey.X.Bytes(),
-			ephemeral.PublicKey.Y.Bytes(),
+			bigIntToBytes(ephemeral.PublicKey.X, size),
+			bigIntToBytes(ephemeral.PublicKey.Y, size),
 			encrypted,
 		}, nil), nil
 
