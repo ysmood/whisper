@@ -2,6 +2,7 @@ package whisper
 
 import (
 	"crypto/md5"
+	"encoding/pem"
 	"errors"
 	"io"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/ysmood/byframe/v4"
 	"github.com/ysmood/whisper/lib/piper"
 	"github.com/ysmood/whisper/lib/secure"
+	"golang.org/x/crypto/ssh"
 )
 
 type AgentReq struct {
@@ -46,7 +48,7 @@ func (e AgentError) Error() string {
 
 // AgentServer is a tcp server that can be used to avoid inputting the passphrase every time.
 // It will do the encryption and decryption for you, not the agent client.
-// There's no way to get the passphrase from the tcp client, the only way to get the passphrase is
+// There's no way to get the raw private key from the tcp client, to do so you have
 // to have root permission and dump the os memory.
 // If the server restarts you have to send it to server again.
 type AgentServer struct {
@@ -60,7 +62,7 @@ func NewAgentServer() *AgentServer {
 	return &AgentServer{
 		Logger: slog.Default(),
 		cache: &privateKeyCache{
-			cache: map[[md5.Size]byte]string{},
+			cache: map[[md5.Size]byte][]byte{},
 		},
 	}
 }
@@ -213,13 +215,24 @@ func (a *AgentServer) cacheLoadPrivate(conf *Config) {
 
 	key := md5.Sum(conf.Private.Data)
 	if p, ok := a.cache.Get(key); ok {
-		conf.Private.Passphrase = p
+		conf.Private.Data = p
 	}
 }
 
 func (a *AgentServer) cachePrivate(p PrivateKey) {
 	key := md5.Sum(p.Data)
-	a.cache.Set(key, p.Passphrase)
+
+	prv, err := secure.SSHPrvKey(p.Data, p.Passphrase)
+	if err != nil {
+		return
+	}
+
+	b, err := ssh.MarshalPrivateKey(prv, "")
+	if err != nil {
+		return
+	}
+
+	a.cache.Set(key, pem.EncodeToMemory(b))
 }
 
 func (a *AgentServer) res(s io.Writer, res AgentRes) error {
@@ -234,10 +247,10 @@ func (a *AgentServer) res(s io.Writer, res AgentRes) error {
 
 type privateKeyCache struct {
 	lock  sync.Mutex
-	cache map[[md5.Size]byte]string
+	cache map[[md5.Size]byte][]byte
 }
 
-func (p *privateKeyCache) Get(key [md5.Size]byte) (string, bool) {
+func (p *privateKeyCache) Get(key [md5.Size]byte) ([]byte, bool) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -245,7 +258,7 @@ func (p *privateKeyCache) Get(key [md5.Size]byte) (string, bool) {
 	return val, ok
 }
 
-func (p *privateKeyCache) Set(key [md5.Size]byte, val string) {
+func (p *privateKeyCache) Set(key [md5.Size]byte, val []byte) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -256,5 +269,5 @@ func (p *privateKeyCache) Clear() {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.cache = map[[md5.Size]byte]string{}
+	p.cache = map[[md5.Size]byte][]byte{}
 }

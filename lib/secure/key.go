@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/md5"
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
@@ -44,19 +43,8 @@ func SSHPubKey(publicKey []byte) (crypto.PublicKey, error) {
 	return nil, fmt.Errorf("%w, can't find public key", ErrNotSupportedKey)
 }
 
-var privateKeyCache = map[string]crypto.PrivateKey{}
-
 // SSHPrvKey returns a private key from a ssh private key.
 func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
-	d := md5.New()
-	_, _ = d.Write(keyData)
-	_, _ = d.Write([]byte(passphrase))
-	id := string(d.Sum(nil))
-
-	if key, ok := privateKeyCache[id]; ok {
-		return key, nil
-	}
-
 	var key interface{}
 	var err error
 	if passphrase == "" {
@@ -80,8 +68,6 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, key)
 	}
-
-	privateKeyCache[id] = prv
 
 	return prv, nil
 }
