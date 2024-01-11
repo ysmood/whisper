@@ -15,8 +15,8 @@ import (
 )
 
 func ExampleNew() {
-	recipient01, recipient01Pub := keyPair("id_ecdsa01", "test")
-	recipient02, recipient02Pub := keyPair("id_ecdsa02", "test")
+	recipient01, recipient01Pub := keyPair("id_ed25519_01", "test")
+	recipient02, recipient02Pub := keyPair("id_ed25519_02", "") // no passphrase
 
 	// Encrypt the message that can be decrypted by both recipient01 and recipient02.
 	encrypted, _ := whisper.EncodeString("hello world!", whisper.Config{
@@ -26,9 +26,9 @@ func ExampleNew() {
 	decrypted01, _ := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	decrypted02, _ := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient02})
 
-	fmt.Println(decrypted01, decrypted02)
+	fmt.Println(len(encrypted), decrypted01, decrypted02)
 
-	// Output: hello world! hello world!
+	// Output: 240 hello world! hello world!
 }
 
 func TestBasic(t *testing.T) {

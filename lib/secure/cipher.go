@@ -24,7 +24,6 @@ package secure
 import (
 	"bytes"
 	"crypto"
-	"crypto/aes"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -53,6 +52,8 @@ const AES_GUARD = 4
 // ...
 // "encrypted-data" is the encrypted data by the AES secret.
 type Cipher struct {
+	// Default is 16, it can be 16, 24, 32.
+	// 16 is AES-128, 24 is AES-192, 32 is AES-256.
 	AESType int
 
 	prv crypto.PrivateKey
@@ -69,7 +70,7 @@ func NewCipher(prv crypto.PrivateKey, index int, pubs ...crypto.PublicKey) *Ciph
 }
 
 func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
-	aesKey := make([]byte, aes.BlockSize)
+	aesKey := make([]byte, c.AESType)
 	_, err := rand.Read(aesKey)
 	if err != nil {
 		return nil, err
@@ -77,7 +78,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range c.pubs {
-		encrypted, err := EncryptSharedSecret(aesKey, c.AESType, pub)
+		encrypted, err := EncryptSharedSecret(aesKey, pub)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +98,7 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 		}
 	}
 
-	return piper.NewAES(aesKey, c.AESType, AES_GUARD).Encoder(w)
+	return piper.NewAES(aesKey, AES_GUARD).Encoder(w)
 }
 
 func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
@@ -119,17 +120,17 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 		encryptedKeys = append(encryptedKeys, encrypted)
 	}
 
-	aesKey, err := DecryptSharedSecret(encryptedKeys[c.index], c.AESType, c.prv)
+	aesKey, err := DecryptSharedSecret(encryptedKeys[c.index], c.prv)
 	if err != nil {
 		return nil, err
 	}
 
-	return piper.NewAES(aesKey, c.AESType, AES_GUARD).Decoder(r)
+	return piper.NewAES(aesKey, AES_GUARD).Decoder(r)
 }
 
 var ErrNotRecipient = fmt.Errorf("not a recipient, the data is not encrypted for your public key")
 
-func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]byte, error) {
+func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error) {
 	switch key := pub.(type) {
 	case *ecdsa.PublicKey:
 		ephemeral, err := ecdsa.GenerateKey(key.Curve, rand.Reader)
@@ -152,7 +153,7 @@ func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]by
 			return nil, err
 		}
 
-		encrypted, err := EncryptAES(secret, aesKey, aesType, 0)
+		encrypted, err := EncryptAES(secret, sharedKey, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +181,7 @@ func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]by
 			return nil, err
 		}
 
-		encrypted, err := EncryptAES(secret, aesKey, aesType, 0)
+		encrypted, err := EncryptAES(secret, sharedKey, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -188,18 +189,18 @@ func EncryptSharedSecret(aesKey []byte, aesType int, pub crypto.PublicKey) ([]by
 		return append(ephemeralPub, encrypted...), nil
 
 	case *rsa.PublicKey:
-		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, aesKey, nil)
+		return rsa.EncryptOAEP(sha256.New(), rand.Reader, key, sharedKey, nil)
 
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, pub)
 	}
 }
 
-func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.PrivateKey) ([]byte, error) {
+func DecryptSharedSecret(sharedKey []byte, prv crypto.PrivateKey) ([]byte, error) {
 	switch key := prv.(type) {
 	case *ecdsa.PrivateKey:
 		size := key.PublicKey.Params().BitSize / 8
-		x, y, encrypted := encryptedAESKey[:size], encryptedAESKey[size:size*2], encryptedAESKey[size*2:]
+		x, y, encrypted := sharedKey[:size], sharedKey[size:size*2], sharedKey[size*2:]
 		public := &ecdsa.PublicKey{
 			Curve: key.Curve,
 			X:     new(big.Int).SetBytes(x),
@@ -221,10 +222,10 @@ func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.Private
 			return nil, err
 		}
 
-		return DecryptAES(secret, encrypted, aesType, 0)
+		return DecryptAES(secret, encrypted, 0)
 
 	case ed25519.PrivateKey:
-		pubBytes, encryptedAESKey := encryptedAESKey[:ed25519.PublicKeySize], encryptedAESKey[ed25519.PublicKeySize:]
+		pubBytes, encryptedAESKey := sharedKey[:ed25519.PublicKeySize], sharedKey[ed25519.PublicKeySize:]
 		xPrv := ed25519PrivateKeyToCurve25519(key)
 		xPub, err := ed25519PublicKeyToCurve25519(ed25519.PublicKey(pubBytes))
 		if err != nil {
@@ -236,10 +237,10 @@ func DecryptSharedSecret(encryptedAESKey []byte, aesType int, prv crypto.Private
 			return nil, err
 		}
 
-		return DecryptAES(secret, encryptedAESKey, aesType, 0)
+		return DecryptAES(secret, encryptedAESKey, 0)
 
 	case *rsa.PrivateKey:
-		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, encryptedAESKey, nil)
+		return rsa.DecryptOAEP(sha256.New(), rand.Reader, key, sharedKey, nil)
 
 	default:
 		return nil, fmt.Errorf("%w, got: %T", ErrNotSupportedKey, prv)
