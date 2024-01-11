@@ -186,7 +186,7 @@ func TestSharedSecret(t *testing.T) {
 
 		prv01, err := secure.SSHPrvKey(g.Read(file).Bytes(), "test")
 		g.E(err)
-		pub01, err := secure.SSHPubKey(g.Read(file + ".pub").Bytes())
+		pub01, err := secure.SSHPubKey(g.Read(file + secure.PUB_KEY_EXT).Bytes())
 		g.E(err)
 
 		encrypted, err := secure.EncryptSharedSecret(aesKey, pub01)
@@ -238,15 +238,35 @@ func TestGenerateKeyFile(t *testing.T) {
 
 	p := "tmp/id_ed25519"
 
-	g.E(secure.GenerateKeyFile(p, "pc", "pass"))
+	g.E(secure.GenerateKeyFile(false, p, "pc", "pass"))
 
-	pub, err := secure.SSHPubKey(g.Read(p + ".pub").Bytes())
+	pub, err := secure.SSHPubKey(g.Read(p + secure.PUB_KEY_EXT).Bytes())
 	g.E(err)
 	g.Is(pub, ed25519.PublicKey{})
 
 	prv, err := secure.SSHPrvKey(g.Read(p).Bytes(), "pass")
 	g.E(err)
 	g.Is(prv, ed25519.PrivateKey{})
+}
+
+func TestGenerateDeterministicKeyFile(t *testing.T) {
+	g := got.T(t)
+
+	g.MkdirAll(0, "tmp")
+
+	p := "tmp/id_ed25519_deterministic"
+
+	g.E(secure.GenerateKeyFile(true, p, "pc", "pass"))
+
+	pub := g.Read(p + secure.PUB_KEY_EXT).Bytes()
+
+	g.E(secure.GenerateKeyFile(true, p, "pc", "pass"))
+
+	prv := g.Read(p).Bytes()
+
+	yes, err := secure.Belongs(pub, prv, "pass")
+	g.E(err)
+	g.True(yes)
 }
 
 func TestKeyHash(t *testing.T) {

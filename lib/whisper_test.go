@@ -200,7 +200,7 @@ func keyPair(privateKeyName, passphrase string) (whisper.PrivateKey, whisper.Pub
 		panic(err)
 	}
 
-	pub, err := os.ReadFile(filepath.FromSlash("secure/test_data/" + privateKeyName + ".pub"))
+	pub, err := os.ReadFile(filepath.FromSlash("secure/test_data/" + privateKeyName + secure.PUB_KEY_EXT))
 	if err != nil {
 		panic(err)
 	}

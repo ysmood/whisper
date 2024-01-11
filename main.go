@@ -303,8 +303,9 @@ func genKey(path string) {
 	}
 
 	comment := readLine("Enter the comment for it: ")
+	deterministic := readLine("Enter yes for deterministic key: ") == "yes"
 
-	err := secure.GenerateKeyFile(path, comment, pass)
+	err := secure.GenerateKeyFile(deterministic, path, comment, pass)
 	if err != nil {
 		exit(err)
 	}

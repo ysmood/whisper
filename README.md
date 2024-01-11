@@ -157,3 +157,10 @@ the `$` prefix means a group name:
   "outDir": "vault"
 }
 ```
+
+### Deterministic private key generation
+
+When using the `-gen-key` flag, it will ask you whether to generate a deterministic key or not,
+if you enter `yes`, the key will be generated based on the passphrase itself,
+so that you can regenerate the same private key on any device as long as you remember the passphrase.
+This is useful if you don't want to backup the key, but it's less secure than random key, you must use a strong passphrase.

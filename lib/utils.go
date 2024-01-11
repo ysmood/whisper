@@ -71,7 +71,7 @@ func (m *Meta) FindSSHPrivateKey() (string, error) {
 		}
 
 		if has {
-			return strings.TrimSuffix(p, ".pub"), nil
+			return strings.TrimSuffix(p, secure.PUB_KEY_EXT), nil
 		}
 	}
 
