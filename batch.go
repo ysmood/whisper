@@ -39,10 +39,6 @@ func NewBatch(configPath string) (*Batch, error) {
 
 	conf.root = filepath.Dir(configPath)
 
-	if conf.OutDir == "" {
-		conf.OutDir = "vault"
-	}
-
 	conf.OutDir = filepath.Join(conf.root, filepath.FromSlash(conf.OutDir))
 
 	return &conf, nil
