@@ -184,22 +184,26 @@ func (b *Batch) Encrypt() error {
 		}
 
 		eg.Go(func() error {
-			out := filepath.Join(b.OutDir, p+WHISPER_FILE_EXT)
-			input := getInput(filepath.Join(b.root, p), "")
-			output := getOutput(out)
+			outPath := filepath.Join(b.OutDir, p+WHISPER_FILE_EXT)
+			inPath := filepath.Join(b.root, p)
+			input := getInput(inPath, "")
+			output := getOutput(outPath)
 
 			conf := whisper.Config{
 				GzipLevel: 9,
 				Public:    getPublicKeys(members),
 			}
 
-			same, err := b.sameRecipients(conf, out)
+			same, err := b.sameRecipients(conf, outPath)
 			if err != nil {
 				return err
 			}
 			if same {
+				fmt.Fprintf(os.Stderr, "[skip] recipients not changed: %s\n", inPath)
 				return nil
 			}
+
+			fmt.Fprintf(os.Stdout, "[encrypted] %s -> %s\n", inPath, outPath)
 
 			return run(conf, input, output)
 		})
@@ -253,6 +257,8 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 				fmt.Fprintf(os.Stderr, "[skip] not a recipient: %s\n", inPath)
 				return nil
 			}
+
+			fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
 
 			return err
 		})
