@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	APIVersion        = "v0.8.8"
+	APIVersion        = "v0.8.9"
 	WireFormatVersion = byte(8)
 )
 

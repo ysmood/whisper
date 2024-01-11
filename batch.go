@@ -286,6 +286,11 @@ func (b *Batch) sameRecipients(conf whisper.Config, out string) (bool, error) {
 	}
 
 	meta, _ := getMeta(input)
+
+	if len(hashList) != len(meta.Recipients) {
+		return false, nil
+	}
+
 	for _, h := range hashList {
 		if _, has := meta.Recipients[string(h[:meta.HashSize()])]; !has {
 			return false, nil
