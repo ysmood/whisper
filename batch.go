@@ -16,11 +16,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Group []string
+
 type Batch struct {
-	Groups map[string][]string `json:"groups"`
-	Admins []string            `json:"admins"`
-	Files  map[string][]string `json:"files"`
-	OutDir string              `json:"outDir"`
+	Groups map[string]Group `json:"groups"`
+	Admins Group            `json:"admins"`
+	Files  map[string]Group `json:"files"`
+	OutDir string           `json:"outDir"`
 
 	root string
 }
@@ -108,18 +110,16 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit
 		expanded := []string{}
 		members = append(members, b.Admins...)
 		for _, member := range members {
-			if !strings.HasPrefix(member, "@") {
-				member = filepath.Join(b.root, member)
-			}
-
-			if strings.HasPrefix(member, "$") {
+			switch {
+			case strings.HasPrefix(member, "$"):
 				if _, ok := groups[member]; !ok {
 					return nil, fmt.Errorf("%w: %s", ErrGroupNotDefined, member)
 				}
-
 				expanded = append(expanded, groups[member]...)
-			} else {
+			case strings.HasPrefix(member, "@"):
 				expanded = append(expanded, member)
+			default:
+				expanded = append(expanded, filepath.Join(b.root, member))
 			}
 		}
 

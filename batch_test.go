@@ -11,7 +11,7 @@ func TestBatchGroups(t *testing.T) {
 	g := got.T(t)
 
 	batch := Batch{
-		Groups: map[string][]string{
+		Groups: map[string]Group{
 			"$a": {"a", "b"},
 			"$b": {"c", "$a"},
 			"$c": {"$b"},
@@ -24,7 +24,7 @@ func TestBatchGroups(t *testing.T) {
 
 	{
 		batch := Batch{
-			Groups: map[string][]string{
+			Groups: map[string]Group{
 				"$a": {"$b"},
 				"$b": {"$a"},
 			},
@@ -43,10 +43,10 @@ func TestBatchFiles(t *testing.T) {
 	g.WriteFile(filepath.FromSlash(p), "hello world!")
 
 	batch := Batch{
-		Files: map[string][]string{
+		Files: map[string]Group{
 			p: {"$c", "d"},
 		},
-		Groups: map[string][]string{
+		Groups: map[string]Group{
 			"$a": {"a", "b"},
 			"$b": {"c", "$a"},
 			"$c": {"$b"},
