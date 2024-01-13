@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/ysmood/got"
@@ -19,6 +20,8 @@ func TestBatchGroups(t *testing.T) {
 	}
 	list, err := batch.GetMembers("$c")
 	g.E(err)
+
+	slices.Sort(list)
 
 	g.Eq(list, []string{"a", "b", "c"})
 

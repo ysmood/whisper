@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -79,8 +82,6 @@ func (b *Batch) getMembers(group string, visited []string) ([]string, error) {
 			members = append(members, member)
 		}
 	}
-
-	slices.Sort(members)
 
 	return members, nil
 }
@@ -194,12 +195,12 @@ func (b *Batch) Encrypt() error {
 				Public:    getPublicKeys(members),
 			}
 
-			same, err := b.sameRecipients(conf, outPath)
+			same, err := b.same(conf, inPath, outPath)
 			if err != nil {
 				return err
 			}
 			if same {
-				fmt.Fprintf(os.Stderr, "[skip] recipients not changed: %s\n", inPath)
+				fmt.Fprintf(os.Stderr, "[skip] not changed: %s\n", inPath)
 				return nil
 			}
 
@@ -272,34 +273,37 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 	return eg.Wait()
 }
 
-func (b *Batch) sameRecipients(conf whisper.Config, out string) (bool, error) {
-	if _, err := os.Stat(out); os.IsNotExist(err) {
-		return false, nil
-	}
+func (b *Batch) same(conf whisper.Config, inPath, outPath string) (bool, error) {
+	hash := sha256.New()
 
-	input, err := os.Open(out)
+	err := json.NewEncoder(hash).Encode(conf)
 	if err != nil {
 		return false, err
 	}
 
-	defer func() { _ = input.Close() }()
+	inFile, err := os.Open(inPath)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = inFile.Close() }()
 
-	_, hashList, err := conf.Recipients()
+	_, err = io.Copy(hash, inFile)
 	if err != nil {
 		return false, err
 	}
 
-	meta, _ := getMeta(input)
+	digest := hash.Sum(nil)
 
-	if len(hashList) != len(meta.Recipients) {
-		return false, nil
+	digestPath := outPath + WHISPER_DIGEST_EXT
+
+	defer func() {
+		_ = os.WriteFile(digestPath, digest, 0o644)
+	}()
+
+	previousDigest, err := os.ReadFile(digestPath)
+	if err != nil {
+		return false, nil //nolint: nilerr
 	}
 
-	for _, h := range hashList {
-		if _, has := meta.Recipients[string(h[:meta.HashSize()])]; !has {
-			return false, nil
-		}
-	}
-
-	return true, nil
+	return bytes.Equal(digest, previousDigest), nil
 }

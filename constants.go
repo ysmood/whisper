@@ -15,3 +15,5 @@ const WHISPER_AGENT_ADDR_DEFAULT = "127.0.0.1:57217"
 const AS_AGENT_FLAG = "run-as-agent"
 
 const WHISPER_FILE_EXT = ".wsp"
+
+const WHISPER_DIGEST_EXT = ".digest"
