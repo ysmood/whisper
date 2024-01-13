@@ -100,7 +100,7 @@ func (b *Batch) ExpandGroups() (map[string][]string, error) {
 	return expanded, nil
 }
 
-func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit
+func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,cyclop
 	files := map[string][]string{}
 	groups, err := b.ExpandGroups()
 	if err != nil {
@@ -132,14 +132,19 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit
 	expanded := map[string][]string{}
 	for p, members := range files {
 		p := filepath.FromSlash(p)
+		rp := filepath.Join(b.root, p)
 
-		stat, err := os.Stat(filepath.Join(b.root, p))
+		stat, err := os.Stat(rp)
 		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "[skip] not exists: %s\n", rp)
+				continue
+			}
 			return nil, err
 		}
 
 		if stat.IsDir() { //nolint: nestif
-			err := filepath.WalkDir(filepath.Join(b.root, p), func(path string, d fs.DirEntry, err error) error {
+			err := filepath.WalkDir(rp, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
