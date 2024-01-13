@@ -88,9 +88,11 @@ func bytesToKeys(private []byte, passphrase string, publics [][]byte) (crypto.Pr
 // so the same passphrase will always generate the same key, this is useful if you don't want to backup the key,
 // but it's less secure, you must use a strong passphrase.
 func GenerateKeyFile(deterministic bool, privateKeyPath, comment, passphrase string) error {
+	var prvKeyPem *pem.Block
+
 	seed := rand.Reader
 
-	if deterministic {
+	if passphrase != "" && deterministic {
 		salt := sha256.Sum256([]byte(passphrase))
 		derivedKey := argon2.IDKey([]byte(passphrase), salt[:], 128, 64*1024, 4, 32)
 		seed = hkdf.New(sha256.New, derivedKey, nil, nil)
@@ -116,7 +118,11 @@ func GenerateKeyFile(deterministic bool, privateKeyPath, comment, passphrase str
 		return err
 	}
 
-	prvKeyPem, err := ssh.MarshalPrivateKeyWithPassphrase(privateKey, comment, []byte(passphrase))
+	if passphrase != "" {
+		prvKeyPem, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, comment, []byte(passphrase))
+	} else {
+		prvKeyPem, err = ssh.MarshalPrivateKey(privateKey, comment)
+	}
 	if err != nil {
 		return err
 	}
