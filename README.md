@@ -89,48 +89,33 @@ whisper -s='@ysmood' hello.wsp
 
 The input can also be file url.
 
-### Agent and cache
-
-The agent server is for caching the private key passphrase, so you don't have to retype it every time.
-To start the agent server, run:
-
-```bash
-# Add the key to the agent.
-whisper -add ~/.ssh/id_ed25519
-```
-
-To remove the key from the agent, run:
-
-```bash
-whisper -clear-cache
-```
-
 ### Batch encrypt and decrypt
 
-Create a json file `vault.json` with the content:
+Create a json file `whisper.json` with the content:
 
 ```json
 {
   "files": {
     "secrets/backend": ["@jack"],
     "secrets/db.txt": ["@tom"]
-  }
+  },
+  "outDir": "vault"
 }
 ```
 
 Then run:
 
 ```bash
-whisper -be vault.json
+whisper -be whisper.json
 ```
 
 It will encrypt the files in folder `secrets/backend` for Jack and encrypt file `secrets/db.txt` for Tom,
-the encrypted files will be stored in folder `vault` by default.
+they will be saved to folder `vault`.
 
 To decrypt in batch, run:
 
 ```bash
-whisper -bd vault.json
+whisper -bd whisper.json
 ```
 
 Or you can decrypt a single file directly:
@@ -156,6 +141,22 @@ the `$` prefix means a group name:
   },
   "outDir": "vault"
 }
+```
+
+### Agent and cache
+
+The agent server is for caching the private key passphrase, so you don't have to retype it every time.
+To start the agent server, run:
+
+```bash
+# Add the key to the agent.
+whisper -add ~/.ssh/id_ed25519
+```
+
+To remove the key from the agent, run:
+
+```bash
+whisper -clear-cache
 ```
 
 ### Deterministic private key generation
