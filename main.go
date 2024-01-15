@@ -41,8 +41,9 @@ func main() { //nolint: funlen,gocyclo,cyclop
 		WHISPER_AGENT_ADDR = WHISPER_AGENT_ADDR_DEFAULT
 	}
 
-	privateKey := flags.String("p", WHISPER_DEFAULT_KEY, "Private key path to decrypt data.\n"+
-		"You can use env var WHISPER_DEFAULT_KEY to set the default key path.\n"+
+	privateKey := flags.String("p", WHISPER_DEFAULT_KEY_PATH, "Private key path to decrypt data.\n"+
+		"Use env var WHISPER_DEFAULT_KEY to set the default key data.\n"+
+		"Use env var WHISPER_DEFAULT_KEY_PATH to set the default key path.\n"+
 		"If it's empty a key in ~/.ssh will be auto selected.\n"+
 		"If it requires a passphrase, env var WHISPER_PASSPHRASE will be used or a password cli prompt will show up.\n"+
 		"The file path should always use / as the separator, even on Windows.")
@@ -192,6 +193,15 @@ func getPrivate(decrypt bool, sign bool, location string, meta *whisper.Meta) *w
 		return nil
 	}
 
+	if location == "" && WHISPER_DEFAULT_KEY != "" {
+		private := whisper.PrivateKey{
+			Data:       []byte(WHISPER_DEFAULT_KEY),
+			Passphrase: WHISPER_PASSPHRASE,
+		}
+
+		return ensurePassphrase(private, location)
+	}
+
 	if location == "" && decrypt {
 		location = findPrivateKey(meta)
 	}
@@ -245,7 +255,7 @@ func findPrivateKey(meta *whisper.Meta) string {
 		return p
 	}
 
-	return WHISPER_DEFAULT_KEY
+	return WHISPER_DEFAULT_KEY_PATH
 }
 
 func getPublicKeys(paths []string) []whisper.PublicKey {
