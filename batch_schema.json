@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "description": "A whisper configure file for batch operations. Doc: https://github.com/ysmood/whisper",
+  "properties": {
+    "groups": {
+      "description": "Defines groups of members. The key is the group name, each name should start with '$'.",
+      "type": "object",
+      "patternProperties": {
+        "^\\$.+": {
+          "$ref": "#/definitions/group"
+        }
+      }
+    },
+    "admins": {
+      "description": "Defines the admin group. Members in this group can decrypt all the files.",
+      "$ref": "#/definitions/group"
+    },
+    "files": {
+      "description": "Defines the files to encrypt and who can decrypt them. The key is a file path or dir path. The path should relative to the config file, and uses '/' as the path separator.",
+      "patternProperties": {
+        "": {
+          "$ref": "#/definitions/group"
+        }
+      }
+    },
+    "outDir": {
+      "description": "Defines the output directory for encrypted files. The path should relative to the config file, and uses '/' as the path separator.",
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "group": {
+      "description": "Defines a group of members.",
+      "type": "array",
+      "items": {
+        "description": "Defines a member. It can be a group name with prefix '$', github user id with prefix '@', ssh authorized_keys file path, or authorized_keys file url with prefix '@'.",
+        "type": "string"
+      }
+    }
+  }
+}

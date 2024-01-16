@@ -95,6 +95,7 @@ Create a json file `whisper.json` with the content:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/ysmood/whisper/main/batch_schema.json",
   "files": {
     "secrets/backend": ["@jack"],
     "secrets/db.txt": ["@tom"]
@@ -129,6 +130,7 @@ the `$` prefix means a group name:
 
 ```jsonc
 {
+  "$schema": "https://raw.githubusercontent.com/ysmood/whisper/main/batch_schema.json",
   "groups": {
     "$frontend": ["@mike", "@tim"],
     "$backend": ["$frontend", "@jack"] // group reference can be recursive
