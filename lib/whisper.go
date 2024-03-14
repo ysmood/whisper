@@ -100,9 +100,9 @@ type Whisper struct {
 // New encoder and decoder pair.
 // The encoding process:
 //
-//	data -> gzip -> cipher -> sign -> meta -> base64
+//	data -> gzip -> cipher -> sign -> meta
 //
-// The sign, gzip, base64 are optional.
+// The sign, gzip are optional.
 //
 // Decoding is the reverse as the encoding.
 // It will still decode the whole data even the signature check fails, it will return [secure.ErrSignNotMatch] error.
