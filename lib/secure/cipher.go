@@ -29,6 +29,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -128,7 +129,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 	return piper.NewAES(aesKey, AES_GUARD).Decoder(r)
 }
 
-var ErrNotRecipient = fmt.Errorf("not a recipient, the data is not encrypted for your public key")
+var ErrNotRecipient = errors.New("not a recipient, the data is not encrypted for your public key")
 
 func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error) {
 	switch key := pub.(type) {

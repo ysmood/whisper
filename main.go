@@ -294,7 +294,7 @@ func fetchPublicKey(location string) whisper.PublicKey {
 	return whisper.PublicKey{Data: b}
 }
 
-var errPrvKeyExists = fmt.Errorf("private key already exists")
+var errPrvKeyExists = errors.New("private key already exists")
 
 func genKey(path string) {
 	if _, err := os.Stat(path); err == nil {
