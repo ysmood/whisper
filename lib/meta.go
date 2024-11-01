@@ -140,7 +140,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 		// key num
 		_, num := byframe.DecodeHeader(numRaw)
 
-		for i := 0; i < num; i++ {
+		for i := range num {
 			key := make([]byte, meta.HashSize())
 
 			_, err = io.ReadFull(in, key)

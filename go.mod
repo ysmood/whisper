@@ -1,8 +1,6 @@
 module github.com/ysmood/whisper
 
-go 1.21
-
-toolchain go1.21.4
+go 1.22
 
 require (
 	github.com/ysmood/byframe/v4 v4.0.0

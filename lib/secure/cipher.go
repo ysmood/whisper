@@ -113,7 +113,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 	_, count := byframe.DecodeHeader(header)
 
 	encryptedKeys := [][]byte{}
-	for i := 0; i < count; i++ {
+	for range count {
 		encrypted, err := s.Next()
 		if err != nil {
 			return nil, err

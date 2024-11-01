@@ -307,7 +307,7 @@ func (b *Batch) same(conf whisper.Config, inPath, outPath string) (bool, error) 
 
 	previousDigest, err := os.ReadFile(digestPath)
 	if err != nil {
-		return false, nil //nolint: nilerr
+		return false, nil
 	}
 
 	return bytes.Equal(digest, previousDigest), nil
