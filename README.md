@@ -89,7 +89,7 @@ whisper -s='@ysmood' hello.wsp
 
 The input can also be file url.
 
-### Batch encrypt and decrypt
+### Batch encryption and decryption files
 
 Create a json file `whisper.json` with the content:
 
@@ -137,7 +137,7 @@ the `$` prefix means a group name:
   },
   "admins": ["@ci-robot"], // the users who can decrypt all the files
   "files": {
-    "secrets/backend": ["$backend"],
+    "secrets/backend": ["$backend"], // the path can be a directory secrets/backend
     "secrets/frontend": ["$frontend", "@tom"],
     "secrets/frontend/mongo": ["@joy"] // add the user to the file that is already set by previous line
   },

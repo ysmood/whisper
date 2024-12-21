@@ -43,7 +43,7 @@ func main() { //nolint: funlen,gocyclo,cyclop
 
 	privateKey := flags.String("p", WHISPER_KEY_PATH, "Private key path to decrypt data.\n"+
 		"Use env var WHISPER_KEY to set the default key data.\n"+
-		"Use env var WHISPER_DTM_KEY to set the seed for the deterministic key date.\n"+
+		"Use env var WHISPER_DTM_KEY to set the seed for the deterministic key data.\n"+
 		"Use env var WHISPER_KEY_PATH to set the default key path.\n"+
 		"If it's empty a key in ~/.ssh will be auto selected.\n"+
 		"If it requires a passphrase, env var WHISPER_PASSPHRASE will be used or a password cli prompt will show up.\n"+
