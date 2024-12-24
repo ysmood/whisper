@@ -48,7 +48,7 @@ func (w *Whisper) Handle(input io.ReadCloser, output io.WriteCloser) error {
 var ErrPrvKeyNotFound = errors.New("private key not found")
 
 // FindSSHPrivateKey find the private key that matches the recipients' public key in the ~/.ssh folder.
-func (m *Meta) FindSSHPrivateKey() (string, error) {
+func (m Meta) FindSSHPrivateKey() (string, error) {
 	dir, err := SSHDir()
 	if err != nil {
 		return "", err
