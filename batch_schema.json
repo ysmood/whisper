@@ -23,6 +23,14 @@
         }
       }
     },
+    "excludeFiles": {
+      "description": "Defines the files to exclude from encryption.",
+      "type": "array",
+      "items": {
+        "description": "Same as the key of 'files'.",
+        "type": "string"
+      }
+    },
     "outDir": {
       "description": "Defines the output directory for encrypted files. The path should relative to the config file, and uses '/' as the path separator.",
       "type": "string"

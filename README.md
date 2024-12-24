@@ -141,6 +141,7 @@ the `$` prefix means a group name:
     "secrets/frontend": ["$frontend", "@tom"],
     "secrets/frontend/mongo": ["@joy"] // add the user to the file that is already set by previous line
   },
+  "excludeFiles": ["secrets/backend/tmp"],
   "outDir": "vault"
 }
 ```

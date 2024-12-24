@@ -22,10 +22,11 @@ import (
 type Group []string
 
 type Batch struct {
-	Groups map[string]Group `json:"groups"`
-	Admins Group            `json:"admins"`
-	Files  map[string]Group `json:"files"`
-	OutDir string           `json:"outDir"`
+	Groups       map[string]Group `json:"groups"`
+	Admins       Group            `json:"admins"`
+	Files        map[string]Group `json:"files"`
+	ExcludeFiles []string         `json:"excludeFiles"`
+	OutDir       string           `json:"outDir"`
 
 	root string
 }
@@ -100,7 +101,7 @@ func (b *Batch) ExpandGroups() (map[string][]string, error) {
 	return expanded, nil
 }
 
-func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,cyclop
+func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,cyclop,gocyclo
 	files := map[string][]string{}
 	groups, err := b.ExpandGroups()
 	if err != nil {
@@ -158,6 +159,10 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,
 					return err
 				}
 
+				if b.isExcluded(path) {
+					return nil
+				}
+
 				expanded[path] = append(expanded[path], members...)
 				return nil
 			})
@@ -170,6 +175,15 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,
 	}
 
 	return expanded, nil
+}
+
+func (b *Batch) isExcluded(path string) bool {
+	for _, p := range b.ExcludeFiles {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Batch) Encrypt() error {
