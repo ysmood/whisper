@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 
@@ -102,14 +103,14 @@ func (b *Batch) ExpandGroups() (map[string][]string, error) {
 }
 
 func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,cyclop,gocyclo
-	files := map[string][]string{}
+	files := map[string]map[string]struct{}{}
 	groups, err := b.ExpandGroups()
 	if err != nil {
 		return nil, err
 	}
 
 	for p, members := range b.Files {
-		expanded := []string{}
+		expanded := map[string]struct{}{}
 		members = append(members, b.Admins...)
 		for _, member := range members {
 			switch {
@@ -117,20 +118,20 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,
 				if _, ok := groups[member]; !ok {
 					return nil, fmt.Errorf("%w: %s", ErrGroupNotDefined, member)
 				}
-				expanded = append(expanded, groups[member]...)
+				for _, m := range groups[member] {
+					expanded[m] = struct{}{}
+				}
 			case strings.HasPrefix(member, "@"):
-				expanded = append(expanded, member)
+				expanded[member] = struct{}{}
 			default:
-				expanded = append(expanded, filepath.Join(b.root, member))
+				expanded[filepath.Join(b.root, member)] = struct{}{}
 			}
 		}
 
-		slices.Sort(expanded)
-		list := uniqueStrings(expanded)
-		files[p] = list
+		files[p] = expanded
 	}
 
-	expanded := map[string][]string{}
+	expanded := map[string]map[string]struct{}{}
 	for p, members := range files {
 		p := filepath.FromSlash(p)
 		rp := filepath.Join(b.root, p)
@@ -163,18 +164,37 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,
 					return nil
 				}
 
-				expanded[path] = append(expanded[path], members...)
+				for m := range members {
+					if expanded[path] == nil {
+						expanded[path] = map[string]struct{}{}
+					}
+					expanded[path][m] = struct{}{}
+				}
 				return nil
 			})
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			expanded[p] = append(expanded[p], members...)
+			for m := range members {
+				if expanded[p] == nil {
+					expanded[p] = map[string]struct{}{}
+				}
+				expanded[p][m] = struct{}{}
+			}
 		}
 	}
 
-	return expanded, nil
+	res := map[string][]string{}
+
+	for p, members := range expanded {
+		for m := range members {
+			res[p] = append(res[p], m)
+		}
+		sort.Strings(res[p])
+	}
+
+	return res, nil
 }
 
 func (b *Batch) isExcluded(path string) bool {
@@ -195,15 +215,12 @@ func (b *Batch) Encrypt() error {
 	eg := errgroup.Group{}
 
 	for p, members := range files {
-		p := p
-		members := members
-
-		err = os.MkdirAll(filepath.Join(b.OutDir, filepath.Dir(p)), 0o755)
-		if err != nil {
-			return err
-		}
-
 		eg.Go(func() error {
+			err = os.MkdirAll(filepath.Join(b.OutDir, filepath.Dir(p)), 0o755)
+			if err != nil {
+				return err
+			}
+
 			outPath := filepath.Join(b.OutDir, p+WHISPER_FILE_EXT)
 			inPath := filepath.Join(b.root, p)
 			input := getInput(inPath, "")
