@@ -159,7 +159,7 @@ func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error)
 			return nil, err
 		}
 
-		size := key.Curve.Params().BitSize / 8
+		size := (key.Curve.Params().BitSize + 7) / 8
 
 		return bytes.Join([][]byte{
 			bigIntToBytes(ephemeral.PublicKey.X, size),
@@ -202,7 +202,7 @@ func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error)
 func DecryptSharedSecret(sharedKey []byte, prv crypto.PrivateKey) ([]byte, error) {
 	switch key := prv.(type) {
 	case *ecdsa.PrivateKey:
-		size := key.PublicKey.Params().BitSize / 8
+		size := (key.PublicKey.Params().BitSize + 7) / 8
 		x, y, encrypted := sharedKey[:size], sharedKey[size:size*2], sharedKey[size*2:]
 		public := &ecdsa.PublicKey{
 			Curve: key.Curve,

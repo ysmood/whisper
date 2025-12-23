@@ -118,6 +118,39 @@ func TestRSA(t *testing.T) { //nolint: dupl
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
+func TestECDSA521(t *testing.T) { //nolint: dupl
+	g := got.T(t)
+
+	key01, err := secure.NewCipherBytes(
+		g.Read("test_data/id_ecdsa04").Bytes(),
+		"test",
+		0,
+		g.Read("test_data/id_ecdsa04.pub").Bytes(),
+	)
+	g.E(err)
+
+	key02, err := secure.NewCipherBytes(
+		g.Read("test_data/id_ecdsa04").Bytes(),
+		"test",
+		0,
+		g.Read("test_data/id_ecdsa04.pub").Bytes(),
+	)
+	g.E(err)
+
+	buf := bytes.NewBuffer(nil)
+	enc, err := key01.Encoder(buf)
+	g.E(err)
+	g.E(enc.Write([]byte("ok")))
+	g.E(enc.Close())
+
+	g.Eq(buf.Len(), 190)
+
+	dec, err := key02.Decoder(buf)
+	g.E(err)
+
+	g.Eq(g.Read(dec).String(), "ok")
+}
+
 func TestSelfPrivateKey(t *testing.T) {
 	g := got.T(t)
 
@@ -182,6 +215,8 @@ func TestSharedSecret(t *testing.T) {
 	g := got.T(t)
 
 	check := func(file string) {
+		g.Helper()
+
 		aesKey := g.RandBytes(32)
 
 		prv01, err := secure.SSHPrvKey(g.Read(file).Bytes(), "test")
@@ -199,6 +234,9 @@ func TestSharedSecret(t *testing.T) {
 	}
 
 	check("test_data/id_ecdsa01")
+	check("test_data/id_ecdsa02")
+	check("test_data/id_ecdsa03")
+	check("test_data/id_ecdsa04")
 	check("test_data/id_ed25519_01")
 	check("test_data/id_rsa01")
 }

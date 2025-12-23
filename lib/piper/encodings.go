@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -64,6 +65,12 @@ type AES struct {
 func NewAES(key []byte, guard int) EncodeDecoder {
 	if guard > aes.BlockSize {
 		panic("guard size can't be larger than aes.BlockSize")
+	}
+
+	// If the key size is not valid, use sha256 to derive a valid key.
+	if len(key) != 16 || len(key) != 24 && len(key) != 32 {
+		hash := sha256.Sum256(key)
+		key = hash[:]
 	}
 
 	return &AES{key, guard}
