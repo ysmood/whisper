@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: lint
-        run: go run github.com/ysmood/golangci-lint@v0.13.0
+        run: go run github.com/ysmood/golangci-lint@v0.13.1 -v 2.7.2
         if: matrix.os == 'ubuntu-latest'
 
       - name: test

@@ -236,7 +236,7 @@ func (b *Batch) Encrypt() error {
 				return err
 			}
 			if same {
-				fmt.Fprintf(os.Stderr, "[skip] not changed: %s\n", inPath)
+				_, _ = fmt.Fprintf(os.Stderr, "[skip] not changed: %s\n", inPath)
 				return nil
 			}
 
@@ -245,7 +245,7 @@ func (b *Batch) Encrypt() error {
 				return err
 			}
 
-			fmt.Fprintf(os.Stdout, "[encrypted] %s -> %s\n", inPath, outPath)
+			_, _ = fmt.Fprintf(os.Stdout, "[encrypted] %s -> %s\n", inPath, outPath)
 
 			return nil
 		})
@@ -296,11 +296,11 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 
 			err = run(conf, input, output)
 			if errors.Is(err, secure.ErrNotRecipient) {
-				fmt.Fprintf(os.Stderr, "[skip] not a recipient: %s\n", inPath)
+				_, _ = fmt.Fprintf(os.Stderr, "[skip] not a recipient: %s\n", inPath)
 				return nil
 			}
 
-			fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
+			_, _ = fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
 
 			return err
 		})
