@@ -13,7 +13,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/secure"
@@ -270,43 +269,43 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 		return err
 	}
 
-	eg := errgroup.Group{}
+	privateKeyCache := map[string]*whisper.PrivateKey{}
 
-	lock := sync.Mutex{}
 	for _, p := range files {
-		p := p
+		outPath := filepath.Join(b.root, strings.TrimSuffix(p, WHISPER_FILE_EXT))
+		err := os.MkdirAll(filepath.Dir(outPath), 0o755)
+		if err != nil {
+			return err
+		}
 
-		eg.Go(func() error {
-			outPath := filepath.Join(b.root, strings.TrimSuffix(p, WHISPER_FILE_EXT))
-			err := os.MkdirAll(filepath.Dir(outPath), 0o755)
-			if err != nil {
-				return err
-			}
+		output := getOutput(outPath)
 
-			output := getOutput(outPath)
+		inPath := filepath.Join(b.OutDir, p)
+		meta, input := getMeta(getInput(inPath, ""))
 
-			inPath := filepath.Join(b.OutDir, p)
-			meta, input := getMeta(getInput(inPath, ""))
+		var privateKey *whisper.PrivateKey
+		if cached, ok := privateKeyCache[privateKeyPath]; ok {
+			privateKey = cached
+		} else {
+			privateKey = getPrivate(true, false, privateKeyPath, meta)
+			privateKeyCache[privateKeyPath] = privateKey
+		}
 
-			lock.Lock()
-			privateKey := getPrivate(true, false, privateKeyPath, meta)
-			lock.Unlock()
+		conf := whisper.Config{Private: privateKey}
 
-			conf := whisper.Config{Private: privateKey}
-
-			err = run(conf, input, output)
+		err = run(conf, input, output)
+		if err != nil {
 			if errors.Is(err, secure.ErrNotRecipient) {
 				_, _ = fmt.Fprintf(os.Stderr, "[skip] not a recipient: %s\n", inPath)
 				return nil
 			}
-
-			_, _ = fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
-
 			return err
-		})
+		}
+
+		_, _ = fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
 	}
 
-	return eg.Wait()
+	return nil
 }
 
 func (b *Batch) same(conf whisper.Config, inPath, outPath string) (bool, error) {

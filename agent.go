@@ -56,7 +56,6 @@ func launchAgentServer() {
 	fmt.Fprintln(os.Stderr, "wait for background whisper agent to start ...")
 
 	for !isAgentServerRunning() {
-
 		time.Sleep(time.Millisecond * 100)
 	}
 

@@ -23,5 +23,10 @@ var USAGE = `
 	# Decrypt and verify the sign
 	whisper -s @tim hello.wsp
 
+	# Batch encryption
+	whisper -be whisper.json
+
+	# Batch decryption
+	whisper -bd whisper.json
 
 `
