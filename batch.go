@@ -102,7 +102,7 @@ func (b *Batch) ExpandGroups() (map[string][]string, error) {
 	return expanded, nil
 }
 
-func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,cyclop,gocyclo
+func (b *Batch) ExpandFiles() (map[string][]string, error) {
 	files := map[string]map[string]struct{}{}
 	groups, err := b.ExpandGroups()
 	if err != nil {
@@ -145,7 +145,7 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) { //nolint: gocognit,
 			return nil, err
 		}
 
-		if stat.IsDir() { //nolint: nestif
+		if stat.IsDir() {
 			err := filepath.WalkDir(rp, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err

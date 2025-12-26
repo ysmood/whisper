@@ -52,7 +52,7 @@ func TestBasic(t *testing.T) {
 	}
 }
 
-func TestED25519(t *testing.T) { //nolint: dupl
+func TestED25519(t *testing.T) {
 	g := got.T(t)
 
 	key01, err := secure.NewCipherBytes(
@@ -85,7 +85,7 @@ func TestED25519(t *testing.T) { //nolint: dupl
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
-func TestRSA(t *testing.T) { //nolint: dupl
+func TestRSA(t *testing.T) {
 	g := got.T(t)
 
 	key01, err := secure.NewCipherBytes(
@@ -118,7 +118,7 @@ func TestRSA(t *testing.T) { //nolint: dupl
 	g.Eq(g.Read(dec).String(), "ok")
 }
 
-func TestECDSA521(t *testing.T) { //nolint: dupl
+func TestECDSA521(t *testing.T) {
 	g := got.T(t)
 
 	key01, err := secure.NewCipherBytes(

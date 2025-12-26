@@ -16,7 +16,7 @@ import (
 	"github.com/ysmood/whisper/lib/secure"
 )
 
-func main() { //nolint: funlen,gocyclo,cyclop
+func main() {
 	flags := flag.NewFlagSet("whisper", flag.ExitOnError)
 
 	flags.Usage = func() {

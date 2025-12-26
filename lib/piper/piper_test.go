@@ -166,7 +166,7 @@ func TestEnder(t *testing.T) {
 		b, err := io.ReadAll(r)
 		g.Eq(b, data)
 		var e msgError
-		g.E(json.Unmarshal(err.(piper.EndErrors), &e)) //nolint: errorlint
+		g.E(json.Unmarshal(err.(piper.EndErrors), &e))
 		g.Eq(e.Message, "test")
 	}
 }

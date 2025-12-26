@@ -221,7 +221,7 @@ func FetchPublicKey(location string) (*PublicKey, error) {
 func getRemotePublicKey(p string) ([]byte, error) {
 	u := toPublicKeyURL(p)
 
-	res, err := http.Get(u) //nolint:noctx
+	res, err := http.Get(u)
 	if err != nil {
 		return nil, err
 	}
