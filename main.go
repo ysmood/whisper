@@ -26,7 +26,7 @@ func main() {
 
 	version := flags.Bool("v", false, "Print version.")
 
-	clearCache := flags.Bool("clear-cache", false, "Clear the cache.")
+	clearCache := flags.Bool("clear-cache", false, "Clear the cache. Including all the fetched public keys, and agent cache private keys.")
 
 	launchAgent := flags.Bool("agent", false, "Launch the background agent server if it's not running.")
 
