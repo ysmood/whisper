@@ -35,7 +35,7 @@ const (
 func (c Config) EncodeMeta(out io.Writer) error {
 	long, keyHashList, err := c.Recipients()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get recipients for meta encoding: %w", err)
 	}
 
 	buf := []byte{
@@ -59,7 +59,10 @@ func (c Config) EncodeMeta(out io.Writer) error {
 	}
 
 	_, err = out.Write(buf)
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+	return nil
 }
 
 var ErrVersionMismatch = errors.New("whisper file format version mismatch")
@@ -90,7 +93,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 	{
 		_, err := io.ReadFull(in, oneByte)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read version byte: %w", err)
 		}
 
 		version := oneByte[0]
@@ -109,7 +112,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 	{
 		_, err := io.ReadFull(in, oneByte)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read flags byte: %w", err)
 		}
 
 		flags := MetaFlag(oneByte[0])
@@ -123,7 +126,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 	if meta.Sign {
 		sender, err := scanner.Next()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read sender information: %w", err)
 		}
 
 		keyMeta := NewPublicKeyMeta(string(sender))
@@ -134,7 +137,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 	{
 		numRaw, err := scanner.Next()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read key count: %w", err)
 		}
 
 		// key num
@@ -145,12 +148,12 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 
 			_, err = io.ReadFull(in, key)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read key hash %d: %w", i, err)
 			}
 
 			b, err := scanner.Next()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read key meta %d: %w", i, err)
 			}
 
 			keyMeta := NewPublicKeyMeta(string(b))
@@ -174,12 +177,12 @@ func (m Meta) HashSize() int {
 func (m Meta) GetIndex(p PrivateKey) (int, error) {
 	key, err := secure.SSHPrvKey(p.Data, p.Passphrase)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to parse private key: %w", err)
 	}
 
 	h, err := secure.PublicKeyHashByPrivateKey(key)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get public key hash from private key: %w", err)
 	}
 
 	if r, has := m.Recipients[string(h[:m.HashSize()])]; has {
@@ -192,17 +195,17 @@ func (m Meta) GetIndex(p PrivateKey) (int, error) {
 func (m Meta) HasPubKey(p PublicKey) (bool, error) {
 	b, err := p.Select()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to select public key: %w", err)
 	}
 
 	pub, err := secure.SSHPubKey(b)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to parse public key: %w", err)
 	}
 
 	h, err := secure.PublicKeyHash(pub)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to compute public key hash: %w", err)
 	}
 
 	_, has := m.Recipients[string(h[:m.HashSize()])]
@@ -261,12 +264,12 @@ func (c Config) Recipients() (bool, [][]byte, error) {
 	for _, pubKey := range c.Public {
 		pub, err := secure.SSHPubKey(pubKey.Data)
 		if err != nil {
-			return false, nil, err
+			return false, nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
 
 		h, err := secure.PublicKeyHash(pub)
 		if err != nil {
-			return false, nil, err
+			return false, nil, fmt.Errorf("failed to compute public key hash: %w", err)
 		}
 
 		hashList = append(hashList, h)

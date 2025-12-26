@@ -34,13 +34,13 @@ type Batch struct {
 func NewBatch(configPath string) (*Batch, error) {
 	b, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read batch config file %s: %w", configPath, err)
 	}
 
 	conf := Batch{}
 	err = json.Unmarshal(b, &conf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse batch config JSON: %w", err)
 	}
 
 	conf.root = filepath.Dir(configPath)
@@ -76,7 +76,7 @@ func (b *Batch) getMembers(group string, visited []string) ([]string, error) {
 		if strings.HasPrefix(member, "$") {
 			ms, err := b.getMembers(member, visited)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to expand group member %s: %w", member, err)
 			}
 			members = append(members, ms...)
 		} else {
@@ -93,7 +93,7 @@ func (b *Batch) ExpandGroups() (map[string][]string, error) {
 	for k := range b.Groups {
 		ms, err := b.GetMembers(k)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to expand group %s: %w", k, err)
 		}
 		expanded[k] = ms
 	}
@@ -105,7 +105,7 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) {
 	files := map[string]map[string]struct{}{}
 	groups, err := b.ExpandGroups()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to expand groups for files: %w", err)
 	}
 
 	for p, members := range b.Files {
@@ -141,13 +141,13 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) {
 				fmt.Fprintf(os.Stderr, "[skip] not exists: %s\n", rp)
 				continue
 			}
-			return nil, err
+			return nil, fmt.Errorf("failed to stat file/dir %s: %w", rp, err)
 		}
 
 		if stat.IsDir() {
 			err := filepath.WalkDir(rp, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
-					return err
+					return fmt.Errorf("walk error at %s: %w", path, err)
 				}
 
 				if d.IsDir() {
@@ -156,7 +156,7 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) {
 
 				path, err = filepath.Rel(b.root, path)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to get relative path for %s: %w", path, err)
 				}
 
 				if b.isExcluded(path) {
@@ -172,7 +172,7 @@ func (b *Batch) ExpandFiles() (map[string][]string, error) {
 				return nil
 			})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to walk directory %s: %w", rp, err)
 			}
 		} else {
 			for m := range members {
@@ -208,7 +208,7 @@ func (b *Batch) isExcluded(path string) bool {
 func (b *Batch) Encrypt() error {
 	files, err := b.ExpandFiles()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to expand files for encryption: %w", err)
 	}
 
 	eg := errgroup.Group{}
@@ -217,7 +217,7 @@ func (b *Batch) Encrypt() error {
 		eg.Go(func() error {
 			err = os.MkdirAll(filepath.Join(b.OutDir, filepath.Dir(p)), 0o755)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to create output directory for %s: %w", p, err)
 			}
 
 			outPath := filepath.Join(b.OutDir, p+WHISPER_FILE_EXT)
@@ -232,7 +232,7 @@ func (b *Batch) Encrypt() error {
 
 			same, err := b.same(conf, inPath, outPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to check if file %s changed: %w", inPath, err)
 			}
 			if same {
 				_, _ = fmt.Fprintf(os.Stderr, "[skip] not changed: %s\n", inPath)
@@ -241,7 +241,7 @@ func (b *Batch) Encrypt() error {
 
 			err = run(conf, input, output)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to encrypt file %s: %w", inPath, err)
 			}
 
 			_, _ = fmt.Fprintf(os.Stdout, "[encrypted] %s -> %s\n", inPath, outPath)
@@ -259,14 +259,14 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 		if !d.IsDir() && filepath.Ext(path) == WHISPER_FILE_EXT {
 			path, err := filepath.Rel(b.OutDir, path)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get relative path for %s: %w", path, err)
 			}
 			files = append(files, path)
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to walk output directory %s: %w", b.OutDir, err)
 	}
 
 	privateKeyCache := map[string]*whisper.PrivateKey{}
@@ -275,7 +275,7 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 		outPath := filepath.Join(b.root, strings.TrimSuffix(p, WHISPER_FILE_EXT))
 		err := os.MkdirAll(filepath.Dir(outPath), 0o755)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create output directory for %s: %w", outPath, err)
 		}
 
 		output := getOutput(outPath)
@@ -299,7 +299,7 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 				_, _ = fmt.Fprintf(os.Stderr, "[skip] not a recipient: %s\n", inPath)
 				return nil
 			}
-			return err
+			return fmt.Errorf("failed to decrypt file %s: %w", inPath, err)
 		}
 
 		_, _ = fmt.Fprintf(os.Stdout, "[decrypted] %s -> %s\n", inPath, outPath)
@@ -318,18 +318,18 @@ func (b *Batch) same(conf whisper.Config, inPath, outPath string) (bool, error) 
 
 	err = json.NewEncoder(hash).Encode(conf)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to encode config for hashing: %w", err)
 	}
 
 	inFile, err := os.Open(inPath)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to open input file %s: %w", inPath, err)
 	}
 	defer func() { _ = inFile.Close() }()
 
 	_, err = io.Copy(hash, inFile)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to hash input file %s: %w", inPath, err)
 	}
 
 	digest := hash.Sum(nil)

@@ -2,6 +2,7 @@ package piper
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/ysmood/byframe/v4"
@@ -55,12 +56,12 @@ func NewWriteEnder(w io.WriteCloser) *WriteEnder {
 func (w WriteEnder) Write(p []byte) (n int, err error) {
 	n, err = w.w.Write(byframe.Encode([]byte{0}))
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("failed to write frame header: %w", err)
 	}
 
 	n, err = w.w.Write(byframe.Encode(p))
 	if err != nil {
-		return n, err
+		return n, fmt.Errorf("failed to write frame data: %w", err)
 	}
 
 	return len(p), nil
@@ -73,19 +74,22 @@ func (w WriteEnder) Close() error {
 func (w WriteEnder) End(e error) error {
 	_, err := w.w.Write(byframe.Encode([]byte{1}))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write end marker: %w", err)
 	}
 
 	var b []byte
 	if e != nil {
 		b, err = json.Marshal(e)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal error: %w", err)
 		}
 	}
 
 	_, err = w.w.Write(byframe.Encode(b))
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to write end data: %w", err)
+	}
+	return nil
 }
 
 type ReadEnder struct {
@@ -98,14 +102,14 @@ func NewReadEnder(r io.Reader) *ReadEnder {
 	return &ReadEnder{r: NewTransformer(func() ([]byte, error) {
 		b, err := s.Next()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read frame header: %w", err)
 		}
 
 		hasErr := b[0] == 1
 
 		b, err = s.Next()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read frame data: %w", err)
 		}
 
 		if hasErr {

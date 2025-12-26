@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -119,12 +120,12 @@ func (a *AgentServer) Listen(l net.Listener) {
 func (a *AgentServer) Handle(s io.ReadWriteCloser) error {
 	b, err := byframe.NewScanner(s).Next()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read agent request: %w", err)
 	}
 
 	req, err := decode[AgentReq](b)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to decode agent request: %w", err)
 	}
 
 	if req.Version != "" {
@@ -161,7 +162,7 @@ func (a *AgentServer) handleClearCache(s io.ReadWriteCloser) error {
 func (a *AgentServer) handleCheckPassphrase(s io.ReadWriteCloser, prv PrivateKey) error {
 	right, err := IsPassphraseRight(prv)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check passphrase: %w", err)
 	}
 
 	a.cachePrivate(prv)
@@ -178,18 +179,18 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 
 	err := a.res(s, AgentRes{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send agent response: %w", err)
 	}
 
 	if req.Config.IsDecryption() {
 		r, err := wsp.Decoder(s)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create decoder: %w", err)
 		}
 
 		_, err = io.Copy(s, r)
-		if err != nil {
-			return err
+		if err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("failed to copy decoded data: %w", err)
 		}
 
 		return r.Close()
@@ -197,12 +198,12 @@ func (a *AgentServer) handleWhisper(s io.ReadWriteCloser, req AgentReq) error {
 
 	w, err := wsp.Encoder(s)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create encoder: %w", err)
 	}
 
 	_, err = io.Copy(w, s)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to copy data to encoder: %w", err)
 	}
 
 	return w.Close()
@@ -238,11 +239,14 @@ func (a *AgentServer) cachePrivate(p PrivateKey) {
 func (a *AgentServer) res(s io.Writer, res AgentRes) error {
 	b, err := encode(res)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to encode agent response: %w", err)
 	}
 
 	_, err = s.Write(byframe.Encode(b))
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to write agent response: %w", err)
+	}
+	return nil
 }
 
 type privateKeyCache struct {

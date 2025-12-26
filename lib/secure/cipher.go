@@ -74,14 +74,14 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 	aesKey := make([]byte, c.AESType)
 	_, err := rand.Read(aesKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate AES key: %w", err)
 	}
 
 	encryptedKeys := [][]byte{}
 	for _, pub := range c.pubs {
 		encrypted, err := EncryptSharedSecret(aesKey, pub)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encrypt shared secret for recipient: %w", err)
 		}
 
 		encryptedKeys = append(encryptedKeys, encrypted)
@@ -89,13 +89,13 @@ func (c *Cipher) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 	_, err = w.Write(byframe.Encode(byframe.EncodeHeader(len(encryptedKeys))))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write encrypted key count: %w", err)
 	}
 
 	for _, encryptedKey := range encryptedKeys {
 		_, err = w.Write(byframe.Encode(encryptedKey))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to write encrypted key: %w", err)
 		}
 	}
 
@@ -107,7 +107,7 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 	header, err := s.Next()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read key count header: %w", err)
 	}
 
 	_, count := byframe.DecodeHeader(header)
@@ -116,14 +116,14 @@ func (c *Cipher) Decoder(r io.Reader) (io.ReadCloser, error) {
 	for range count {
 		encrypted, err := s.Next()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read encrypted key: %w", err)
 		}
 		encryptedKeys = append(encryptedKeys, encrypted)
 	}
 
 	aesKey, err := DecryptSharedSecret(encryptedKeys[c.index], c.prv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decrypt shared secret: %w", err)
 	}
 
 	return piper.NewAES(aesKey, AES_GUARD).Decoder(r)
@@ -136,27 +136,27 @@ func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error)
 	case *ecdsa.PublicKey:
 		ephemeral, err := ecdsa.GenerateKey(key.Curve, rand.Reader)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate ephemeral ECDSA key: %w", err)
 		}
 
 		prv, err := ephemeral.ECDH()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert ephemeral key to ECDH: %w", err)
 		}
 
 		public, err := key.ECDH()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert public key to ECDH: %w", err)
 		}
 
 		secret, err := prv.ECDH(public)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to compute ECDH shared secret: %w", err)
 		}
 
 		encrypted, err := EncryptAES(secret, sharedKey, 0)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encrypt AES key with shared secret: %w", err)
 		}
 
 		size := (key.Curve.Params().BitSize + 7) / 8
@@ -170,23 +170,23 @@ func EncryptSharedSecret(sharedKey []byte, pub crypto.PublicKey) ([]byte, error)
 	case ed25519.PublicKey:
 		ephemeralPub, ephemeralPrv, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to generate ephemeral Ed25519 key: %w", err)
 		}
 
 		xPrv := ed25519PrivateKeyToCurve25519(ephemeralPrv)
 		xPub, err := ed25519PublicKeyToCurve25519(key)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert Ed25519 public key to Curve25519: %w", err)
 		}
 
 		secret, err := curve25519.X25519(xPrv, xPub)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to compute X25519 shared secret: %w", err)
 		}
 
 		encrypted, err := EncryptAES(secret, sharedKey, 0)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to encrypt AES key with Ed25519 shared secret: %w", err)
 		}
 
 		return append(ephemeralPub, encrypted...), nil
@@ -212,17 +212,17 @@ func DecryptSharedSecret(sharedKey []byte, prv crypto.PrivateKey) ([]byte, error
 
 		private, err := key.ECDH()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert ECDSA private key to ECDH: %w", err)
 		}
 
 		pub, err := public.ECDH()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert ECDSA public key to ECDH: %w", err)
 		}
 
 		secret, err := private.ECDH(pub)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to compute ECDH shared secret: %w", err)
 		}
 
 		return DecryptAES(secret, encrypted, 0)
@@ -232,12 +232,12 @@ func DecryptSharedSecret(sharedKey []byte, prv crypto.PrivateKey) ([]byte, error
 		xPrv := ed25519PrivateKeyToCurve25519(key)
 		xPub, err := ed25519PublicKeyToCurve25519(ed25519.PublicKey(pubBytes))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert Ed25519 public key to Curve25519: %w", err)
 		}
 
 		secret, err := curve25519.X25519(xPrv, xPub)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to compute X25519 shared secret: %w", err)
 		}
 
 		return DecryptAES(secret, encryptedAESKey, 0)

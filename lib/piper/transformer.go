@@ -1,5 +1,11 @@
 package piper
 
+import (
+	"errors"
+	"fmt"
+	"io"
+)
+
 type Transformer struct {
 	Transform func() ([]byte, error)
 
@@ -27,7 +33,11 @@ func (t *Transformer) Read(p []byte) (n int, err error) {
 
 	b, err := t.Transform()
 	if err != nil {
-		return 0, err
+		if errors.Is(err, io.EOF) {
+			return 0, io.EOF
+		}
+
+		return 0, fmt.Errorf("transformation failed: %w", err)
 	}
 
 	n = copy(p, b)

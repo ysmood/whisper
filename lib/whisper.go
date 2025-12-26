@@ -127,7 +127,7 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 	{
 		publicKeys, err := selectPublicKeys(w.conf.Public)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to select public keys: %w", err)
 		}
 
 		var prv PrivateKey
@@ -137,7 +137,7 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 
 		cipher, err := secure.NewCipherBytes(prv.Data, prv.Passphrase, 0, publicKeys...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create cipher: %w", err)
 		}
 
 		pipeline = append(pipeline, cipher)
@@ -151,7 +151,7 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 
 		belongs, err := secure.Belongs(w.conf.Sign.Data, w.conf.Private.Data, w.conf.Private.Passphrase)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to check if public key belongs to private key: %w", err)
 		}
 
 		if !belongs {
@@ -160,7 +160,7 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 
 		sign, err := secure.NewSignerBytes(w.conf.Private.Data, w.conf.Private.Passphrase)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create signer: %w", err)
 		}
 
 		pipeline = append(pipeline, sign)
@@ -169,7 +169,7 @@ func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 	// meta
 	err := w.conf.EncodeMeta(out)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to encode metadata: %w", err)
 	}
 
 	return piper.Join(pipeline...).Encoder(out)
@@ -181,7 +181,7 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 
 	meta, err := DecodeMeta(in)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
 	// gzip
@@ -197,12 +197,12 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 
 		index, err := meta.GetIndex(*w.conf.Private)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get recipient index: %w", err)
 		}
 
 		cipher, err := secure.NewCipherBytes(w.conf.Private.Data, w.conf.Private.Passphrase, index)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create cipher for decryption: %w", err)
 		}
 
 		pipeline = append(pipeline, cipher)
@@ -214,14 +214,14 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 		if w.conf.Sign != nil {
 			key, err := w.conf.Sign.Select()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to select sign key: %w", err)
 			}
 			keys = append(keys, key)
 		}
 
 		sign, err := secure.NewSignerBytes(nil, "", keys...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create signer for verification: %w", err)
 		}
 
 		pipeline = append(pipeline, sign)

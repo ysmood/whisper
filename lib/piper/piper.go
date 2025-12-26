@@ -1,6 +1,9 @@
 package piper
 
-import "io"
+import (
+	"fmt"
+	"io"
+)
 
 type EncodeDecoder interface {
 	// Encoder returns a writer that will encode data to out.
@@ -32,7 +35,7 @@ func Join(list ...EncodeDecoder) EncodeDecoder {
 			for i := len(list) - 1; i >= 0; i-- {
 				w, err := list[i].Encoder(wc.Writer)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to create encoder at index %d: %w", i, err)
 				}
 				wc.Writer = w
 				wc.closers = append(wc.closers, w)
@@ -44,7 +47,7 @@ func Join(list ...EncodeDecoder) EncodeDecoder {
 			for i := len(list) - 1; i >= 0; i-- {
 				r, err := list[i].Decoder(rc.Reader)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to create decoder at index %d: %w", i, err)
 				}
 				rc.Reader = r
 				rc.closers = append(rc.closers, r)

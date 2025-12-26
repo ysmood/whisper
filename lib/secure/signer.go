@@ -30,17 +30,17 @@ func (s *Signer) Sign(data []byte) ([]byte, error) {
 
 	w, err := s.Encoder(buf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create signer encoder: %w", err)
 	}
 
 	_, err = w.Write(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write data to signer: %w", err)
 	}
 
 	err = w.Close()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to close signer: %w", err)
 	}
 
 	return buf.Bytes(), nil
@@ -73,7 +73,7 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 			_, err = h.Write(p)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to write to hash: %w", err)
 			}
 
 			_, err = w.Write(append(byframe.Encode(p), byframe.Encode(empty)...))
@@ -87,11 +87,14 @@ func (s *Signer) Encoder(w io.Writer) (io.WriteCloser, error) {
 
 			sign, err := s.SigDigest(h.Sum(nil))
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to generate signature: %w", err)
 			}
 
 			_, err = w.Write(append(byframe.Encode(empty), byframe.Encode(sign)...))
-			return err
+			if err != nil {
+				return fmt.Errorf("failed to write signature: %w", err)
+			}
+			return nil
 		},
 	}, nil
 }
@@ -114,17 +117,23 @@ func (s *Signer) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 			data, err := f.Next()
 			if err != nil {
-				return 0, err
+				if errors.Is(err, io.EOF) {
+					return 0, io.EOF
+				}
+				return 0, fmt.Errorf("failed to read data frame: %w", err)
 			}
 
 			_, err = h.Write(data)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to write data to hash: %w", err)
 			}
 
 			sign, err := f.Next()
 			if err != nil {
-				return 0, err
+				if errors.Is(err, io.EOF) {
+					return 0, io.EOF
+				}
+				return 0, fmt.Errorf("failed to read signature frame: %w", err)
 			}
 
 			if len(sign) == 0 {

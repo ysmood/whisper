@@ -3,6 +3,7 @@ package piper_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -165,8 +166,10 @@ func TestEnder(t *testing.T) {
 
 		b, err := io.ReadAll(r)
 		g.Eq(b, data)
+		var pErr piper.EndErrors
+		g.True(errors.As(err, &pErr))
 		var e msgError
-		g.E(json.Unmarshal(err.(piper.EndErrors), &e))
+		g.E(json.Unmarshal(pErr, &e))
 		g.Eq(e.Message, "test")
 	}
 }

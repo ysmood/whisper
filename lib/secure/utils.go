@@ -23,7 +23,7 @@ const KEY_HASH_SIZE = md5.Size
 func PublicKeyHash(pub crypto.PublicKey) ([]byte, error) {
 	sshPubKey, err := ssh.NewPublicKey(pub)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert public key to SSH format: %w", err)
 	}
 
 	d := md5.Sum(sshPubKey.Marshal())
@@ -38,7 +38,7 @@ func PublicKeyHashByPrivateKey(prv crypto.PrivateKey) ([]byte, error) {
 func NewCipherBytes(privateKey []byte, passphrase string, index int, publicKeys ...[]byte) (*Cipher, error) {
 	prv, pubs, err := bytesToKeys(privateKey, passphrase, publicKeys)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert keys for cipher: %w", err)
 	}
 
 	return NewCipher(prv, index, pubs...), nil
@@ -47,7 +47,7 @@ func NewCipherBytes(privateKey []byte, passphrase string, index int, publicKeys 
 func NewSignerBytes(privateKey []byte, passphrase string, publicKeys ...[]byte) (*Signer, error) {
 	prv, pubs, err := bytesToKeys(privateKey, passphrase, publicKeys)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to convert keys for signer: %w", err)
 	}
 
 	var pub crypto.PublicKey
@@ -65,7 +65,7 @@ func bytesToKeys(private []byte, passphrase string, publics [][]byte) (crypto.Pr
 		var err error
 		prv, err = SSHPrvKey(private, passphrase)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to parse private key: %w", err)
 		}
 	}
 
@@ -73,7 +73,7 @@ func bytesToKeys(private []byte, passphrase string, publics [][]byte) (crypto.Pr
 	for _, publicKey := range publics {
 		key, err := SSHPubKey(publicKey)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("failed to parse public key: %w", err)
 		}
 
 		pubs = append(pubs, key)
@@ -100,12 +100,12 @@ func GenerateKeyFile(deterministic bool, comment, passphrase string) ([]byte, []
 
 	publicKey, privateKey, err := ed25519.GenerateKey(seed)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to generate Ed25519 key: %w", err)
 	}
 
 	sshPubKey, err := ssh.NewPublicKey(publicKey)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create SSH public key: %w", err)
 	}
 
 	pubKeyString := fmt.Sprintf("%s %s %s\n",
@@ -120,7 +120,7 @@ func GenerateKeyFile(deterministic bool, comment, passphrase string) ([]byte, []
 		prvKeyPem, err = ssh.MarshalPrivateKey(privateKey, comment)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
 	}
 
 	prvKeyBytes := pem.EncodeToMemory(prvKeyPem)

@@ -122,7 +122,7 @@ func (w *lazyFileWriter) Write(p []byte) (n int, err error) {
 	if w.file == nil {
 		w.file, err = os.OpenFile(w.path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to open file %s: %w", w.path, err)
 		}
 	}
 	return w.file.Write(p)

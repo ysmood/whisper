@@ -78,7 +78,10 @@ func agentWhisper(conf whisper.Config, in io.ReadCloser, out io.WriteCloser) err
 	if conf.Sign == nil && errors.Is(err, secure.ErrSignMismatch) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("agent whisper operation failed: %w", err)
+	}
+	return nil
 }
 
 var ErrWrongPassphrase = errors.New("wrong passphrase")

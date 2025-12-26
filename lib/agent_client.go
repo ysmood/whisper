@@ -3,6 +3,7 @@ package whisper
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 
@@ -32,7 +33,7 @@ func NewAgentClient(addr string) AgentClient {
 func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 	res, stream, err := c.agentReq(AgentReq{Config: conf})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send whisper request to agent: %w", err)
 	}
 
 	defer func() { _ = stream.Close() }()
@@ -46,7 +47,7 @@ func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 	eg.Go(func() error {
 		_, err := io.Copy(stream, in)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write data to agent stream: %w", err)
 		}
 
 		return stream.End(nil)
@@ -60,7 +61,7 @@ func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
 				var ae AgentError
 				err := json.Unmarshal(endErr, &ae)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to unmarshal agent error: %w", err)
 				}
 
 				switch ae.Type {
@@ -89,7 +90,7 @@ func (c *agentClient) IsPassphraseRight(prv PrivateKey) (bool, error) {
 			return false, nil
 		}
 
-		return false, err
+		return false, fmt.Errorf("failed to check passphrase with agent: %w", err)
 	}
 
 	_ = stream.Close()
@@ -104,7 +105,7 @@ func (c *agentClient) IsServerRunning(version string) (bool, error) {
 			return false, nil
 		}
 
-		return false, err
+		return false, fmt.Errorf("failed to check agent server status: %w", err)
 	}
 
 	_ = stream.Close()
@@ -114,32 +115,38 @@ func (c *agentClient) IsServerRunning(version string) (bool, error) {
 
 func (c *agentClient) ClearCache() error {
 	_, _, err := c.agentReq(AgentReq{ClearCache: true})
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to clear agent cache: %w", err)
+	}
+	return nil
 }
 
 func (c *agentClient) agentReq(req AgentReq) (*AgentRes, *piper.Ender, error) {
 	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to connect to agent at %s: %w", c.Addr, err)
 	}
 
 	e := piper.NewEnder(conn)
 
 	b, err := encode(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to encode agent request: %w", err)
 	}
 
 	_, err = e.Write(byframe.Encode(b))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to write agent request: %w", err)
 	}
 
 	b, err = byframe.NewScanner(e).Next()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to read agent response: %w", err)
 	}
 
 	res, err := decode[AgentRes](b)
-	return &res, e, err
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode agent response: %w", err)
+	}
+	return &res, e, nil
 }

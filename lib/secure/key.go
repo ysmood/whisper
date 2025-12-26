@@ -76,12 +76,12 @@ func SSHPrvKey(keyData []byte, passphrase string) (crypto.PrivateKey, error) {
 func Belongs(pub, prv []byte, passphrase string) (bool, error) {
 	prvKey, err := SSHPrvKey(prv, passphrase)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to parse private key: %w", err)
 	}
 
 	pubKey, err := SSHPubKey(pub)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to parse public key: %w", err)
 	}
 
 	switch key := pubKey.(type) {

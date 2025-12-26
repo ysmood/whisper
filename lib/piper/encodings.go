@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -79,18 +80,18 @@ func NewAES(key []byte, guard int) EncodeDecoder {
 func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 	block, err := aes.NewCipher(a.Key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	iv := make([]byte, aes.BlockSize)
 	_, err = rand.Read(iv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate IV: %w", err)
 	}
 
 	_, err = w.Write(iv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write IV: %w", err)
 	}
 
 	s := &cipher.StreamWriter{
@@ -103,7 +104,7 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 	// The change of failing to detect wrong key is 1/(2^(a.Guard * 8)).
 	_, err = s.Write(iv[:a.Guard])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write guard bytes: %w", err)
 	}
 
 	return s, nil
@@ -114,13 +115,13 @@ var ErrAESDecode = errors.New("wrong secret or corrupted data")
 func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 	block, err := aes.NewCipher(a.Key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
 	}
 
 	iv := make([]byte, aes.BlockSize)
 	_, err = io.ReadFull(r, iv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read IV: %w", err)
 	}
 
 	sr := &cipher.StreamReader{
@@ -132,7 +133,7 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 
 	_, err = io.ReadFull(sr, guard)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read guard bytes: %w", err)
 	}
 
 	if !bytes.Equal(guard, iv[:a.Guard]) {
