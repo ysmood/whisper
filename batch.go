@@ -311,7 +311,12 @@ func (b *Batch) Decrypt(privateKeyPath string) error {
 func (b *Batch) same(conf whisper.Config, inPath, outPath string) (bool, error) {
 	hash := sha256.New()
 
-	err := json.NewEncoder(hash).Encode(conf)
+	_, err := hash.Write([]byte{whisper.WireFormatVersion})
+	if err != nil {
+		return false, fmt.Errorf("failed to write version to hash: %w", err)
+	}
+
+	err = json.NewEncoder(hash).Encode(conf)
 	if err != nil {
 		return false, err
 	}

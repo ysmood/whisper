@@ -94,7 +94,7 @@ func (a *AES) Encoder(w io.Writer) (io.WriteCloser, error) {
 	}
 
 	s := &cipher.StreamWriter{
-		S: cipher.NewOFB(block, iv),
+		S: cipher.NewCTR(block, iv),
 		W: NopCloser(w),
 	}
 
@@ -124,7 +124,7 @@ func (a *AES) Decoder(r io.Reader) (io.ReadCloser, error) {
 	}
 
 	sr := &cipher.StreamReader{
-		S: cipher.NewOFB(block, iv),
+		S: cipher.NewCTR(block, iv),
 		R: r,
 	}
 
