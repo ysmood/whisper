@@ -21,7 +21,6 @@ func exit(err error) {
 }
 
 func getPassphrase(location string) string {
-	defer fmt.Fprintln(os.Stderr)
 	return readPassphrase(fmt.Sprintf("Enter passphrase for private key %s: ", location))
 }
 
@@ -38,6 +37,8 @@ func readPassphrase(prompt string) string {
 	if err != nil {
 		exit(err)
 	}
+
+	fmt.Fprintln(os.Stderr)
 
 	return string(inputPass)
 }
