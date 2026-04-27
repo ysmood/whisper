@@ -23,7 +23,11 @@ func cacheClear() {
 }
 
 func cacheDir() string {
-	return filepath.Join(os.TempDir(), "whisper")
+	base, err := os.UserCacheDir()
+	if err != nil {
+		exit(err)
+	}
+	return filepath.Join(base, "whisper")
 }
 
 func cacheFilePath(key string) string {
@@ -36,14 +40,12 @@ func cache(key string, data any) {
 		exit(err)
 	}
 
-	// Ensure the cache directory exists
-	err = os.MkdirAll(cacheDir(), 0o755)
+	err = os.MkdirAll(cacheDir(), 0o700)
 	if err != nil {
 		exit(err)
 	}
 
-	// Write the data to the cache file
-	err = os.WriteFile(cacheFilePath(key), b, 0o644)
+	err = os.WriteFile(cacheFilePath(key), b, 0o600)
 	if err != nil {
 		exit(err)
 	}

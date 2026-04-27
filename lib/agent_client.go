@@ -23,11 +23,21 @@ type AgentClient interface {
 }
 
 type agentClient struct {
-	Addr string
+	Label string
+	Dial  func() (net.Conn, error)
 }
 
 func NewAgentClient(addr string) AgentClient {
-	return &agentClient{Addr: addr}
+	return &agentClient{
+		Label: addr,
+		Dial:  func() (net.Conn, error) { return net.Dial("tcp", addr) },
+	}
+}
+
+// NewAgentClientFunc returns an AgentClient that uses the given dial function
+// to connect to the agent. label is only used in error messages.
+func NewAgentClientFunc(label string, dial func() (net.Conn, error)) AgentClient {
+	return &agentClient{Label: label, Dial: dial}
 }
 
 func (c *agentClient) Whisper(conf Config, in io.Reader, out io.Writer) error {
@@ -122,9 +132,9 @@ func (c *agentClient) ClearCache() error {
 }
 
 func (c *agentClient) agentReq(req AgentReq) (*AgentRes, *piper.Ender, error) {
-	conn, err := net.Dial("tcp", c.Addr)
+	conn, err := c.Dial()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to agent at %s: %w", c.Addr, err)
+		return nil, nil, fmt.Errorf("failed to connect to agent at %s: %w", c.Label, err)
 	}
 
 	e := piper.NewEnder(conn)

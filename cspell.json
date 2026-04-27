@@ -1,4 +1,15 @@
 {
-  "words": ["ysmood", "smood", "byframe", "errgroup", "filippo"],
-  "ignorePaths": ["go.sum"]
+  "words": [
+    "byframe",
+    "DACL",
+    "errgroup",
+    "filippo",
+    "SDDL",
+    "smood",
+    "winio",
+    "ysmood"
+  ],
+  "ignorePaths": [
+    "go.sum"
+  ]
 }

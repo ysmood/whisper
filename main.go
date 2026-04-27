@@ -31,14 +31,14 @@ func main() {
 	launchAgent := flags.Bool("agent", false, "Launch the background agent server if it's not running.")
 
 	asAgentServer := flags.Bool(AS_AGENT_FLAG, false,
-		"Run as agent server, you can use env var WHISPER_AGENT_ADDR to specify the host and port to listen on.\n"+
-			"If WHISPER_AGENT_ADDR is not set, "+WHISPER_AGENT_ADDR_DEFAULT+" will be used.")
+		"Run as agent server. Use env var WHISPER_AGENT_ADDR to override the\n"+
+			"default per-user socket path (Unix) or named pipe (Windows).")
 
 	addPassphrase := flags.String("add", "", "Add the key's passphrase to the agent cache.\n"+
 		"It will also launch the agent server like -agent flag")
 
 	if WHISPER_AGENT_ADDR == "" {
-		WHISPER_AGENT_ADDR = WHISPER_AGENT_ADDR_DEFAULT
+		WHISPER_AGENT_ADDR = defaultAgentAddr()
 	}
 
 	privateKey := flags.String("p", WHISPER_KEY_PATH, "Private key path to decrypt data.\n"+

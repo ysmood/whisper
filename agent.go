@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"time"
@@ -13,13 +14,20 @@ import (
 )
 
 func agent() whisper.AgentClient {
-	return whisper.NewAgentClient(WHISPER_AGENT_ADDR)
+	return whisper.NewAgentClientFunc(WHISPER_AGENT_ADDR, func() (net.Conn, error) {
+		return dialAgent(WHISPER_AGENT_ADDR)
+	})
 }
 
 func runAsAgentServer() {
+	l, err := listenAgent(WHISPER_AGENT_ADDR)
+	if err != nil {
+		exit(fmt.Errorf("failed to listen on agent address %s: %w", WHISPER_AGENT_ADDR, err))
+	}
+
 	fmt.Fprintf(os.Stderr, "whisper agent started on %s, version: %s\n", WHISPER_AGENT_ADDR, whisper.APIVersion)
 
-	whisper.NewAgentServer().Serve(WHISPER_AGENT_ADDR)
+	whisper.NewAgentServer().Listen(l)
 }
 
 func isAgentServerRunning() bool {
