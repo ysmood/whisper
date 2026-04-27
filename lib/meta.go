@@ -1,7 +1,6 @@
 package whisper
 
 import (
-	"compress/gzip"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -15,7 +14,7 @@ import (
 type MetaFlag byte
 
 const (
-	MetaGzip MetaFlag = 1 << iota
+	MetaCompress MetaFlag = 1 << iota
 	MetaSign
 	MetaLongPubKeyHash // If set, the hash size will be [sha1.Size], or it will be 4 bytes
 )
@@ -25,7 +24,7 @@ const (
 //	[version][flags][signer][key num][keyInfo1][keyInfo2]...
 //
 // "version" is the whisper file format version.
-// "flags" about the encoding, such as if gzip, base64 are enabled or not.
+// "flags" about the encoding, such as if zstd, base64 are enabled or not.
 // "signer" is the signer's public key [PublicKey.ID] and [PublicKey.Selector].
 // "key num" is the num of recipients.
 // "keyInfo1" is the first recipient's public key info.
@@ -68,7 +67,7 @@ func (c Config) EncodeMeta(out io.Writer) error {
 var ErrVersionMismatch = errors.New("whisper file format version mismatch")
 
 type Meta struct {
-	Gzip           bool
+	Compress       bool
 	Sign           bool
 	LongPubKeyHash bool
 
@@ -117,7 +116,7 @@ func DecodeMeta(in io.Reader) (*Meta, error) {
 
 		flags := MetaFlag(oneByte[0])
 
-		meta.Gzip = flags&MetaGzip != 0
+		meta.Compress = flags&MetaCompress != 0
 		meta.Sign = flags&MetaSign != 0
 		meta.LongPubKeyHash = flags&MetaLongPubKeyHash != 0
 	}
@@ -228,20 +227,20 @@ func (m Meta) String() string {
 	}
 
 	return fmt.Sprintf(
-		"wire-format: v%d\nsign: %v\nsigner: \"%s\"\nrecipients: %v\ngzip: %v",
+		"wire-format: v%d\nsign: %v\nsigner: \"%s\"\nrecipients: %v\ncompress: %v",
 		WireFormatVersion,
 		m.Sign,
 		sender,
 		recipients,
-		m.Gzip,
+		m.Compress,
 	)
 }
 
 func (c Config) genFlags(long bool) byte {
 	var flags MetaFlag
 
-	if c.GzipLevel != gzip.NoCompression {
-		flags |= MetaGzip
+	if c.CompressionLevel != 0 {
+		flags |= MetaCompress
 	}
 
 	if c.Sign != nil {

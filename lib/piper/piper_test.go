@@ -16,19 +16,19 @@ func TestEncodings(t *testing.T) {
 	g := got.T(t)
 
 	trans := &piper.Transparent{}
-	gzip := piper.NewGzip()
+	zstd := piper.NewZstd()
 	aes := piper.NewAES(g.RandBytes(32), 0)
 	base64 := piper.NewBase64()
 
 	buf := bytes.NewBuffer(nil)
 
-	enc, err := piper.Join(gzip, trans, piper.Join(aes, base64), trans).Encoder(buf)
+	enc, err := piper.Join(zstd, trans, piper.Join(aes, base64), trans).Encoder(buf)
 	g.E(err)
 
 	g.E(enc.Write([]byte("ok")))
 	g.E(enc.Close())
 
-	dec, err := piper.Join(gzip, piper.Join(aes, base64)).Decoder(buf)
+	dec, err := piper.Join(zstd, piper.Join(aes, base64)).Decoder(buf)
 	g.E(err)
 
 	g.Eq(g.Read(dec).Bytes(), []byte("ok"))
@@ -37,12 +37,12 @@ func TestEncodings(t *testing.T) {
 func TestOrder(t *testing.T) {
 	g := got.T(t)
 
-	gzip := piper.NewGzip()
+	zstd := piper.NewZstd()
 	base64 := piper.NewBase64()
 
 	buf := bytes.NewBuffer(nil)
 
-	ed := piper.Join(gzip, base64)
+	ed := piper.Join(zstd, base64)
 
 	enc, err := ed.Encoder(buf)
 	g.E(err)

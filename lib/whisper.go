@@ -1,7 +1,6 @@
 package whisper
 
 import (
-	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -13,7 +12,7 @@ import (
 
 const (
 	APIVersion        = "v0.10.0"
-	WireFormatVersion = byte(9)
+	WireFormatVersion = byte(10)
 )
 
 type PrivateKey struct {
@@ -73,8 +72,8 @@ func (k PublicKey) Select() ([]byte, error) {
 }
 
 type Config struct {
-	// Gzip compression level
-	GzipLevel int
+	// Zstd compression level. 0 means no compression.
+	CompressionLevel int
 
 	// For data decryption and signature signing.
 	Private *PrivateKey
@@ -100,9 +99,9 @@ type Whisper struct {
 // New encoder and decoder pair.
 // The encoding process:
 //
-//	data -> gzip -> cipher -> sign -> meta
+//	data -> compress -> cipher -> sign -> meta
 //
-// The sign, gzip are optional.
+// The sign, compress are optional.
 //
 // Decoding is the reverse as the encoding.
 // It will still decode the whole data even the signature check fails, it will return [secure.ErrSignNotMatch] error.
@@ -118,9 +117,9 @@ var ErrPubPrvNotMatch = errors.New("public and private key not match")
 func (w *Whisper) Encoder(out io.Writer) (io.WriteCloser, error) {
 	pipeline := []piper.EncodeDecoder{}
 
-	// gzip
-	if w.conf.GzipLevel != gzip.NoCompression {
-		pipeline = append(pipeline, &piper.Gzip{Level: w.conf.GzipLevel})
+	// zstd
+	if w.conf.CompressionLevel != 0 {
+		pipeline = append(pipeline, &piper.Zstd{Level: w.conf.CompressionLevel})
 	}
 
 	// cipher
@@ -184,9 +183,9 @@ func (w *Whisper) Decoder(in io.Reader) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to decode metadata: %w", err)
 	}
 
-	// gzip
-	if meta.Gzip {
-		pipeline = append(pipeline, &piper.Gzip{})
+	// zstd
+	if meta.Compress {
+		pipeline = append(pipeline, &piper.Zstd{})
 	}
 
 	// cipher

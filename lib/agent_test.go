@@ -2,12 +2,12 @@ package whisper_test
 
 import (
 	"bytes"
-	"compress/gzip"
 	"io"
 	"log/slog"
 	"net"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/ysmood/got"
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/secure"
@@ -63,10 +63,10 @@ func TestAgentEncodeDecode(t *testing.T) {
 	signPrv, signPub := keyPair("id_ed25519_01", "test")
 
 	conf := whisper.Config{
-		GzipLevel: gzip.DefaultCompression,
-		Private:   &signPrv,
-		Sign:      &signPub,
-		Public:    []whisper.PublicKey{pub},
+		CompressionLevel: int(zstd.SpeedDefault),
+		Private:          &signPrv,
+		Sign:             &signPub,
+		Public:           []whisper.PublicKey{pub},
 	}
 
 	in := bytes.NewBufferString("hello")
@@ -76,9 +76,9 @@ func TestAgentEncodeDecode(t *testing.T) {
 	g.E(err)
 
 	conf = whisper.Config{
-		GzipLevel: gzip.DefaultCompression,
-		Private:   &prv,
-		Sign:      &signPub,
+		CompressionLevel: int(zstd.SpeedDefault),
+		Private:          &prv,
+		Sign:             &signPub,
 	}
 
 	decoded := bytes.NewBuffer(nil)

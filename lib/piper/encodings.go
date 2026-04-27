@@ -2,7 +2,6 @@ package piper
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -11,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 type Transparent struct{}
@@ -39,20 +40,24 @@ func (e *Base64) Decoder(r io.Reader) (io.ReadCloser, error) {
 	return io.NopCloser(base64.NewDecoder(e.Encoding, r)), nil
 }
 
-type Gzip struct {
+type Zstd struct {
 	Level int
 }
 
-func NewGzip() EncodeDecoder {
-	return &Gzip{Level: gzip.DefaultCompression}
+func NewZstd() EncodeDecoder {
+	return &Zstd{Level: int(zstd.SpeedDefault)}
 }
 
-func (g *Gzip) Encoder(w io.Writer) (io.WriteCloser, error) {
-	return gzip.NewWriterLevel(w, g.Level)
+func (z *Zstd) Encoder(w io.Writer) (io.WriteCloser, error) {
+	return zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.EncoderLevel(z.Level)))
 }
 
-func (g *Gzip) Decoder(r io.Reader) (io.ReadCloser, error) {
-	return gzip.NewReader(r)
+func (z *Zstd) Decoder(r io.Reader) (io.ReadCloser, error) {
+	dec, err := zstd.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+	return dec.IOReadCloser(), nil
 }
 
 type AES struct {

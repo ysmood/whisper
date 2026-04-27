@@ -1,7 +1,6 @@
 package main
 
 import (
-	"compress/gzip"
 	"encoding/base64"
 	"errors"
 	"flag"
@@ -62,7 +61,7 @@ func main() {
 
 	enableBase64 := flags.Bool("b", false, "Encoding or decoding data as base64 string.")
 
-	compressLevel := flags.Int("c", gzip.NoCompression, "Gzip compression level.")
+	compressLevel := flags.Int("c", 0, "Zstd compression level. 0 means no compression.")
 
 	inputFile := flags.String("i", "", "Input encryption/decryption from the specified file or https url.")
 	outputFile := flags.String("o", "", "Output encryption/decryption to the specified file.")
@@ -143,10 +142,10 @@ func main() {
 	private := getPrivate(decrypt, *signPublicKey != "", *privateKey, meta)
 
 	conf := whisper.Config{
-		GzipLevel: *compressLevel,
-		Private:   private,
-		Sign:      getSign(*signPublicKey),
-		Public:    getPublicKeys(publicKeys),
+		CompressionLevel: *compressLevel,
+		Private:          private,
+		Sign:             getSign(*signPublicKey),
+		Public:           getPublicKeys(publicKeys),
 	}
 
 	err = run(conf, input, output)

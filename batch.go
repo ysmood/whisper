@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/klauspost/compress/zstd"
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/secure"
 	"golang.org/x/sync/errgroup"
@@ -226,8 +227,8 @@ func (b *Batch) Encrypt() error {
 			output := getOutput(outPath)
 
 			conf := whisper.Config{
-				GzipLevel: 9,
-				Public:    getPublicKeys(members),
+				CompressionLevel: int(zstd.SpeedBestCompression),
+				Public:           getPublicKeys(members),
 			}
 
 			same, err := b.same(conf, inPath, outPath)

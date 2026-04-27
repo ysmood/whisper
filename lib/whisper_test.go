@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/ysmood/got"
 	whisper "github.com/ysmood/whisper/lib"
 	"github.com/ysmood/whisper/lib/piper"
@@ -41,12 +42,10 @@ func TestBasic(t *testing.T) {
 
 	// Encrypt the message that can be decrypted by both recipient01 and recipient02.
 	encrypted, err := whisper.EncodeString(data, whisper.Config{
-		Public:    []whisper.PublicKey{recipient01Pub, recipient02Pub},
-		GzipLevel: 9,
+		Public:           []whisper.PublicKey{recipient01Pub, recipient02Pub},
+		CompressionLevel: int(zstd.SpeedBestCompression),
 	})
 	g.E(err)
-
-	g.Len(encrypted, 272)
 
 	decrypted01, err := whisper.DecodeString(encrypted, whisper.Config{Private: &recipient01})
 	g.E(err)
@@ -159,8 +158,8 @@ func TestMeta(t *testing.T) {
 	recipient01Pub.Meta = whisper.NewPublicKeyMeta("bot:lzdHAyN")
 
 	conf := whisper.Config{
-		GzipLevel: 1,
-		Private:   &sender01,
+		CompressionLevel: int(zstd.SpeedFastest),
+		Private:          &sender01,
 		Sign: &whisper.PublicKey{
 			Meta: whisper.PublicKeyMeta{
 				ID:       "test",

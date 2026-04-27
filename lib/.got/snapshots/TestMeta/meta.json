@@ -1,5 +1,5 @@
 {
-  "Gzip": true,
+  "Compress": true,
   "Sign": true,
   "LongPubKeyHash": false,
   "Sender": {
