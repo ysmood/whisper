@@ -28,6 +28,17 @@ If you have golang installed:
 go install github.com/ysmood/whisper@latest
 ```
 
+### AI agent skill
+
+If you use an AI coding agent, install the [whisper-cli](skills/whisper-cli/SKILL.md) skill so the agent knows how to use the CLI correctly.
+The skill follows the [Agent Skills](https://agentskills.io) format.
+For example, to install it for [Claude Code](https://claude.com/claude-code):
+
+```bash
+git clone --depth 1 https://github.com/ysmood/whisper.git /tmp/whisper
+cp -r /tmp/whisper/skills/whisper-cli ~/.claude/skills/
+```
+
 ### Encrypt and decrypt with local keys
 
 Here is a simple example to encrypt and decrypt for yourself. The encrypted data can only be decrypted by your private key.
